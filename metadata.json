@@ -1,0 +1,5 @@
+{
+  "name": "Zerg Wars Poll Organizer",
+  "description": "A Kanban-style poll organizer to create, manage, and export polls. Features drag-and-drop functionality for easy organization of polls into different categories.",
+  "requestFramePermissions": []
+}
