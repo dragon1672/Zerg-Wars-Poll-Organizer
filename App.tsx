@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Poll, Polls } from './types';
 import { STORAGE_KEY, COLLAPSE_KEY, columnCategories, basePollsData, categoryOrderMap } from './constants';
 import Header from './components/Header';
@@ -18,6 +17,7 @@ const App: React.FC = () => {
     const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load data from localStorage on initial render
     useEffect(() => {
@@ -171,6 +171,59 @@ const App: React.FC = () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
+    
+    const handleSaveProject = () => {
+        try {
+            const dataStr = JSON.stringify(polls, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Zerg_Wars_Poll_Project.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error saving project:", error);
+            alert("An error occurred while trying to save the project.");
+        }
+    };
+
+    const handleLoadProject = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') {
+                    throw new Error("File could not be read.");
+                }
+                const data = JSON.parse(text);
+
+                // Basic validation
+                if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+                    setPolls(data as Polls);
+                    alert('Project loaded successfully!');
+                } else {
+                    throw new Error("Invalid file format.");
+                }
+            } catch (error) {
+                console.error("Error loading project:", error);
+                alert("Failed to load project. The file may be corrupt or in the wrong format.");
+            } finally {
+                // Reset file input to allow loading the same file again
+                if(event.target) {
+                    event.target.value = '';
+                }
+            }
+        };
+        reader.readAsText(file);
+    };
 
     const handleToggleCollapse = (categoryId: string) => {
         setCollapsedState(prev => {
@@ -208,7 +261,17 @@ const App: React.FC = () => {
             <Header
                 onAddPoll={handleOpenAddModal}
                 onExport={handleExport}
+                onSaveProject={handleSaveProject}
+                onTriggerLoad={() => fileInputRef.current?.click()}
                 onDeleteAll={() => setIsConfirmDeleteOpen(true)}
+            />
+            
+             <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".json,application/json"
+                onChange={handleLoadProject}
             />
             
             <UndoBar lastDeletedPoll={lastDeletedPoll} onUndo={handleUndoDelete} />
