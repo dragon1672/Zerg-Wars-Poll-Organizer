@@ -221,22 +221,36 @@ const App: React.FC = () => {
                 if (typeof text !== 'string') throw new Error("File could not be read.");
                 const data = JSON.parse(text);
 
-                // Check for new format {polls, templates}
-                if (data && typeof data === 'object' && 'polls' in data && 'templates' in data) {
+                // Handles formats with a root 'polls' object:
+                // 1. ProjectData: { polls: Polls, templates: Template[] }
+                // 2. Polls-only: { polls: Polls }
+                if (data && typeof data === 'object' && 'polls' in data) {
                     setPolls(data.polls as Polls);
-                    setTemplates(data.templates as Template[]);
-                    alert('Project loaded successfully!');
-                // Check for legacy format (just polls object)
+                    if ('templates' in data) {
+                        setTemplates(data.templates as Template[]);
+                        alert('Project loaded successfully!');
+                    } else {
+                        setTemplates(baseTemplatesData); // Load default templates if not present
+                        alert('Project with polls data loaded successfully! Default templates have been added.');
+                    }
+                // Handles legacy format where the root object is the Polls object
                 } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-                    setPolls(data as Polls);
-                    setTemplates(baseTemplatesData); // Load default templates for old format
-                    alert('Legacy project loaded successfully! Default templates have been added.');
+                    // Heuristic check to see if it's a Polls object.
+                    const firstKey = Object.keys(data)[0];
+                    if (firstKey && data[firstKey] && typeof data[firstKey] === 'object' && 'description' in data[firstKey] && 'category' in data[firstKey]) {
+                        setPolls(data as Polls);
+                        setTemplates(baseTemplatesData); // Load default templates for old format
+                        alert('Legacy project loaded successfully! Default templates have been added.');
+                    } else {
+                        throw new Error("Invalid file format: Unrecognized object structure.");
+                    }
                 } else {
                     throw new Error("Invalid file format.");
                 }
             } catch (error) {
                 console.error("Error loading project:", error);
-                alert("Failed to load project. The file may be corrupt or in the wrong format.");
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                alert(`Failed to load project. The file may be corrupt or in the wrong format. Error: ${errorMessage}`);
             } finally {
                 if(event.target) event.target.value = '';
             }
