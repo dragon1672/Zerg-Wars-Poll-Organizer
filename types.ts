@@ -20,3 +20,14 @@ export interface Category {
   color: string;
   border: string;
 }
+
+export interface Template {
+  id: string;
+  name: string;
+  options: { text: string }[];
+}
+
+export interface ProjectData {
+  polls: Polls;
+  templates: Template[];
+}

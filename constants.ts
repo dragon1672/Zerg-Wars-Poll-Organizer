@@ -1,7 +1,8 @@
 
-import type { Category, Polls } from './types';
+import type { Category, Polls, Template } from './types';
 
 export const STORAGE_KEY = 'zergWarsPollsData';
+export const TEMPLATE_STORAGE_KEY = 'zergWarsTemplatesData';
 export const COLLAPSE_KEY = 'pollOrganizerCollapseState';
 
 export const columnCategories: Category[] = [
@@ -35,3 +36,26 @@ export const basePollsData: Polls = {
         order: 20,
     },
 };
+
+export const baseTemplatesData: Template[] = [
+    { 
+        id: 'template_design_3', 
+        name: 'Design (3)', 
+        options: [
+            { text: 'A good change, keep it and balance around it' }, 
+            { text: 'Neutral, I do not have a strong opinion' }, 
+            { text: 'A bad change, revert this' }
+        ]
+    },
+    { 
+        id: 'template_balance_5', 
+        name: 'Balance (5)', 
+        options: [
+            { text: 'Overpowered' }, 
+            { text: 'Stronger than balanced' }, 
+            { text: 'Balanced' }, 
+            { text: 'Weaker than balanced' }, 
+            { text: 'Underpowered' }
+        ]
+    }
+];

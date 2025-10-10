@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { Poll, PollOption, Category } from '../types';
+import type { Poll, PollOption, Category, Template } from '../types';
 import type { SortableEvent } from 'sortablejs';
 
 declare const Sortable: any;
@@ -10,11 +10,13 @@ interface PollModalProps {
     onSave: (pollData: Omit<Poll, 'id' | 'order'>, pollId?: string) => void;
     onClose: () => void;
     categories: Category[];
+    templates: Template[];
+    defaultCategory?: string | null;
 }
 
 const generateUniqueId = () => crypto.randomUUID().substring(0, 8);
 
-const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories }) => {
+const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories, templates, defaultCategory }) => {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('GENERAL');
     const [options, setOptions] = useState<PollOption[]>([]);
@@ -29,10 +31,10 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
             setOptions(JSON.parse(JSON.stringify(poll.options || [])));
         } else {
             setDescription('');
-            setCategory('GENERAL');
+            setCategory(defaultCategory || 'GENERAL');
             setOptions([]);
         }
-    }, [poll]);
+    }, [poll, defaultCategory]);
     
     useEffect(() => {
         if (optionsContainerRef.current) {
@@ -77,6 +79,8 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
     const applyTemplate = (templateOptions: {text: string}[]) => {
         setOptions(templateOptions.map(opt => ({ id: generateUniqueId(), text: opt.text })));
     };
+    
+    const templateColors = ['orange', 'purple', 'teal', 'cyan', 'pink', 'lime'];
 
     return (
         <div className="fixed inset-0 z-50 flex justify-center items-start bg-black bg-opacity-50 overflow-y-auto p-4 pt-12">
@@ -100,10 +104,17 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
                     <div className="mb-6 border-t pt-4">
                         <h3 className="text-lg font-bold text-gray-800">3. Voting Options</h3>
                         <div className="my-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                             <p className="text-sm font-semibold text-gray-700 mb-2">Templates</p>
+                             <p className="text-sm font-semibold text-gray-700 mb-2">Apply a Template</p>
                             <div className="flex flex-wrap gap-2">
-                                <button type="button" onClick={() => applyTemplate([{ text: 'A good change, keep it and balance around it' }, { text: 'Neutral, I do not have a strong opinion' }, { text: 'A bad change, revert this' }])} className="px-3 py-1 text-xs font-medium text-orange-600 border border-orange-600 rounded-full hover:bg-orange-50 transition"> Design (3) </button>
-                                <button type="button" onClick={() => applyTemplate([{ text: 'Overpowered' }, { text: 'Stronger than balanced' }, { text: 'Balanced' }, { text: 'Weaker than balanced' }, { text: 'Underpowered' }])} className="px-3 py-1 text-xs font-medium text-purple-600 border border-purple-600 rounded-full hover:bg-purple-50 transition"> Balance (5) </button>
+                                {templates.map((template, index) => {
+                                    const color = templateColors[index % templateColors.length];
+                                    return (
+                                        <button key={template.id} type="button" onClick={() => applyTemplate(template.options)} className={`px-3 py-1 text-xs font-medium text-${color}-600 border border-${color}-600 rounded-full hover:bg-${color}-50 transition`}>
+                                            {template.name}
+                                        </button>
+                                    );
+                                })}
+                                 {templates.length === 0 && <p className="text-xs text-gray-500">No templates found. You can create some in "Manage Templates".</p>}
                             </div>
                         </div>
                         <button type="button" onClick={handleAddOption} className="px-3 py-1 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-full hover:bg-indigo-50 transition mb-3"> + Add Custom Option </button>

@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { Poll, Polls } from './types';
-import { STORAGE_KEY, COLLAPSE_KEY, columnCategories, basePollsData, categoryOrderMap } from './constants';
+import type { Poll, Polls, Template, ProjectData } from './types';
+import { STORAGE_KEY, TEMPLATE_STORAGE_KEY, COLLAPSE_KEY, columnCategories, basePollsData, baseTemplatesData, categoryOrderMap } from './constants';
 import Header from './components/Header';
 import UndoBar from './components/UndoBar';
 import Column from './components/Column';
 import PollModal from './components/PollModal';
+import TemplateModal from './components/TemplateModal';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 
 // Helper to generate a unique ID
@@ -12,11 +14,14 @@ const generateUniqueId = () => crypto.randomUUID().substring(0, 8);
 
 const App: React.FC = () => {
     const [polls, setPolls] = useState<Polls>({});
+    const [templates, setTemplates] = useState<Template[]>([]);
     const [collapsedState, setCollapsedState] = useState<Map<string, boolean>>(new Map());
     const [lastDeletedPoll, setLastDeletedPoll] = useState<{ id: string; data: Poll } | null>(null);
     const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [newPollCategory, setNewPollCategory] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load data from localStorage on initial render
@@ -24,6 +29,9 @@ const App: React.FC = () => {
         try {
             const storedPolls = localStorage.getItem(STORAGE_KEY);
             setPolls(storedPolls ? JSON.parse(storedPolls) : basePollsData);
+            
+            const storedTemplates = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+            setTemplates(storedTemplates ? JSON.parse(storedTemplates) : baseTemplatesData);
 
             const storedCollapseState = localStorage.getItem(COLLAPSE_KEY);
             if (storedCollapseState) {
@@ -36,6 +44,7 @@ const App: React.FC = () => {
         } catch (e) {
             console.error("Error loading data from Local Storage. Starting fresh.", e);
             setPolls(basePollsData);
+            setTemplates(baseTemplatesData);
         }
     }, []);
 
@@ -47,6 +56,15 @@ const App: React.FC = () => {
             console.error("Error saving poll data to Local Storage:", e);
         }
     }, [polls]);
+    
+    // Save templates to localStorage whenever they change
+    useEffect(() => {
+        try {
+            localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+        } catch(e) {
+             console.error("Error saving templates to Local Storage:", e);
+        }
+    }, [templates]);
 
     // Save collapse state to localStorage whenever it changes
     useEffect(() => {
@@ -61,21 +79,24 @@ const App: React.FC = () => {
         setLastDeletedPoll(null);
     }, []);
 
-    const handleOpenAddModal = () => {
+    const handleOpenAddModal = (categoryId?: string) => {
         hideUndoBar();
         setEditingPoll(null);
+        setNewPollCategory(categoryId || null);
         setIsAddModalOpen(true);
     };
     
     const handleOpenEditModal = (pollId: string) => {
         hideUndoBar();
         setEditingPoll(polls[pollId]);
+        setNewPollCategory(null);
         setIsAddModalOpen(true);
     };
     
     const handleCloseModal = () => {
         setIsAddModalOpen(false);
         setEditingPoll(null);
+        setNewPollCategory(null);
     };
 
     const handleSavePoll = (pollData: Omit<Poll, 'id' | 'order'>, pollId?: string) => {
@@ -85,11 +106,10 @@ const App: React.FC = () => {
                 newPolls[pollId] = { ...newPolls[pollId], ...pollData };
             } else { // Create new poll
                 const newId = `poll_${generateUniqueId()}`;
-                // FIX: Add explicit type to `p` to resolve `unknown` type error from `Object.values`.
-                const currentPolls = Object.values(newPolls).filter((p: Poll) => p.category === pollData.category);
-                // FIX: Add explicit type to `p` to resolve `unknown` type error from `Object.values`.
+                const category = newPollCategory || pollData.category;
+                const currentPolls = Object.values(newPolls).filter((p: Poll) => p.category === category);
                 const maxOrder = currentPolls.length > 0 ? Math.max(...currentPolls.map(p => p.order || 0)) : 0;
-                newPolls[newId] = { ...pollData, id: newId, order: maxOrder + 10 };
+                newPolls[newId] = { ...pollData, category, id: newId, order: maxOrder + 10 };
             }
             return newPolls;
         });
@@ -137,12 +157,12 @@ const App: React.FC = () => {
     const handleDeleteAllPolls = () => {
         hideUndoBar();
         setPolls({});
+        setTemplates([]);
         setIsConfirmDeleteOpen(false);
     };
 
     const handleExport = () => {
         let exportText = "";
-        // FIX: Add explicit types to `a` and `b` to resolve `unknown` type error from `Object.values`.
         const sortedPolls = Object.values(polls).sort((a: Poll, b: Poll) => {
             const catAOrder = categoryOrderMap.get(a.category) ?? 999;
             const catBOrder = categoryOrderMap.get(b.category) ?? 999;
@@ -150,7 +170,6 @@ const App: React.FC = () => {
             return (a.order || 0) - (b.order || 0);
         });
 
-        // FIX: The `sortedPolls` variable is now correctly typed as `Poll[]`, which resolves `unknown` type errors for `poll` below.
         sortedPolls.forEach((poll) => {
             exportText += `${poll.description}\n`;
             if (poll.options && poll.options.length > 0) {
@@ -174,7 +193,8 @@ const App: React.FC = () => {
     
     const handleSaveProject = () => {
         try {
-            const dataStr = JSON.stringify(polls, null, 2);
+            const projectData: ProjectData = { polls, templates };
+            const dataStr = JSON.stringify(projectData, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -192,23 +212,25 @@ const App: React.FC = () => {
 
     const handleLoadProject = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file) {
-            return;
-        }
+        if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const text = e.target?.result;
-                if (typeof text !== 'string') {
-                    throw new Error("File could not be read.");
-                }
+                if (typeof text !== 'string') throw new Error("File could not be read.");
                 const data = JSON.parse(text);
 
-                // Basic validation
-                if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-                    setPolls(data as Polls);
+                // Check for new format {polls, templates}
+                if (data && typeof data === 'object' && 'polls' in data && 'templates' in data) {
+                    setPolls(data.polls as Polls);
+                    setTemplates(data.templates as Template[]);
                     alert('Project loaded successfully!');
+                // Check for legacy format (just polls object)
+                } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+                    setPolls(data as Polls);
+                    setTemplates(baseTemplatesData); // Load default templates for old format
+                    alert('Legacy project loaded successfully! Default templates have been added.');
                 } else {
                     throw new Error("Invalid file format.");
                 }
@@ -216,10 +238,7 @@ const App: React.FC = () => {
                 console.error("Error loading project:", error);
                 alert("Failed to load project. The file may be corrupt or in the wrong format.");
             } finally {
-                // Reset file input to allow loading the same file again
-                if(event.target) {
-                    event.target.value = '';
-                }
+                if(event.target) event.target.value = '';
             }
         };
         reader.readAsText(file);
@@ -237,21 +256,20 @@ const App: React.FC = () => {
         hideUndoBar();
         setPolls(prevPolls => {
             const newPolls = { ...prevPolls };
-
-            // Update category if changed
             if (newPolls[pollId] && newPolls[pollId].category !== newCategoryId) {
                 newPolls[pollId].category = newCategoryId;
             }
-
-            // Update order for all polls in the affected column
             orderedIds.forEach((id, index) => {
-                if (newPolls[id]) {
-                    newPolls[id].order = (index + 1) * 10;
-                }
+                if (newPolls[id]) newPolls[id].order = (index + 1) * 10;
             });
             return newPolls;
         });
     }, [hideUndoBar]);
+    
+    const handleSaveTemplates = (updatedTemplates: Template[]) => {
+        setTemplates(updatedTemplates);
+        setIsTemplateModalOpen(false);
+    };
 
     const collapsedCategories = columnCategories.filter(col => collapsedState.get(col.id));
     const expandedCategories = columnCategories.filter(col => !collapsedState.get(col.id));
@@ -259,11 +277,12 @@ const App: React.FC = () => {
     return (
         <>
             <Header
-                onAddPoll={handleOpenAddModal}
+                onAddPoll={() => handleOpenAddModal()}
                 onExport={handleExport}
                 onSaveProject={handleSaveProject}
                 onTriggerLoad={() => fileInputRef.current?.click()}
                 onDeleteAll={() => setIsConfirmDeleteOpen(true)}
+                onManageTemplates={() => setIsTemplateModalOpen(true)}
             />
             
              <input
@@ -289,7 +308,6 @@ const App: React.FC = () => {
                         >
                             <div className="flex items-center justify-center h-full">
                                 <h2 className="text-sm font-bold truncate text-gray-800">
-                                    {/* FIX: Add explicit type to `p` to resolve `unknown` type error from `Object.values`. */}
                                     {col.title} ({Object.values(polls).filter((p: Poll) => p.category === col.id).length})
                                 </h2>
                             </div>
@@ -302,13 +320,13 @@ const App: React.FC = () => {
                         <Column
                             key={category.id}
                             category={category}
-                            // FIX: Add explicit types to parameters to resolve `unknown` type error from `Object.values`.
                             polls={Object.values(polls).filter((p: Poll) => p.category === category.id).sort((a: Poll, b: Poll) => (a.order || 0) - (b.order || 0))}
                             onToggleCollapse={handleToggleCollapse}
                             onEditPoll={handleOpenEditModal}
                             onDeletePoll={handleDeletePoll}
                             onDuplicatePoll={handleDuplicatePoll}
                             onPollDrop={handlePollDrop}
+                            onAddPollToCategory={handleOpenAddModal}
                         />
                     ))}
                 </div>
@@ -320,6 +338,16 @@ const App: React.FC = () => {
                     onSave={handleSavePoll}
                     onClose={handleCloseModal}
                     categories={columnCategories}
+                    templates={templates}
+                    defaultCategory={newPollCategory}
+                />
+            )}
+
+            {isTemplateModalOpen && (
+                <TemplateModal
+                    templates={templates}
+                    onSave={handleSaveTemplates}
+                    onClose={() => setIsTemplateModalOpen(false)}
                 />
             )}
 

@@ -15,9 +15,10 @@ interface ColumnProps {
     onDeletePoll: (id: string) => void;
     onDuplicatePoll: (id: string) => void;
     onPollDrop: (pollId: string, newCategoryId: string, orderedIds: string[]) => void;
+    onAddPollToCategory: (categoryId: string) => void;
 }
 
-const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEditPoll, onDeletePoll, onDuplicatePoll, onPollDrop }) => {
+const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEditPoll, onDeletePoll, onDuplicatePoll, onPollDrop, onAddPollToCategory }) => {
     const contentRef = useRef<HTMLDivElement>(null);
     const sortableInstance = useRef<any>(null);
 
@@ -33,7 +34,8 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEd
                     
                     if (!pollId || !newCategoryEl) return;
                     
-                    const newCategoryId = newCategoryEl.dataset.categoryId;
+                    // FIX: Cast element to HTMLElement to access dataset property.
+                    const newCategoryId = (newCategoryEl as HTMLElement).dataset.categoryId;
                     if (!newCategoryId) return;
 
                     const orderedIds = Array.from(evt.to.children)
@@ -45,7 +47,6 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEd
             });
         }
         
-        // Cleanup function to destroy Sortable instance
         return () => {
             if (sortableInstance.current) {
                 sortableInstance.current.destroy();
@@ -60,16 +61,25 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEd
                 <h2 className="text-lg font-bold text-gray-800">{category.title} ({polls.length})</h2>
                 <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
             </div>
-            <div ref={contentRef} className={`min-h-[100px] ${category.color} rounded-b-xl p-1`}>
-                {polls.map(poll => (
-                    <PollCard 
-                        key={poll.id} 
-                        poll={poll}
-                        onEdit={onEditPoll}
-                        onDelete={onDeletePoll}
-                        onDuplicate={onDuplicatePoll}
-                    />
-                ))}
+            <div className={`flex flex-col ${category.color} rounded-b-xl`}>
+                <div ref={contentRef} className="min-h-[100px] p-1 flex-grow">
+                    {polls.map(poll => (
+                        <PollCard 
+                            key={poll.id} 
+                            poll={poll}
+                            onEdit={onEditPoll}
+                            onDelete={onDeletePoll}
+                            onDuplicate={onDuplicatePoll}
+                        />
+                    ))}
+                </div>
+                <div className="p-2">
+                    <button 
+                        onClick={() => onAddPollToCategory(category.id)} 
+                        className="w-full text-center text-sm text-gray-600 hover:bg-gray-300/60 rounded-lg p-2 transition-colors">
+                        + Add a poll
+                    </button>
+                </div>
             </div>
         </div>
     );
