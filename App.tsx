@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Poll, Polls, Template, ProjectData } from './types';
 import { STORAGE_KEY, TEMPLATE_STORAGE_KEY, COLLAPSE_KEY, columnCategories, basePollsData, baseTemplatesData, categoryOrderMap } from './constants';
+import { ahkScriptContent } from './ahkScript';
 import Header from './components/Header';
 import UndoBar from './components/UndoBar';
 import Column from './components/Column';
@@ -20,9 +21,15 @@ const App: React.FC = () => {
     const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [newPollCategory, setNewPollCategory] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [confirmAction, setConfirmAction] = useState<{
+        title: string;
+        message: string;
+        confirmText: string;
+        onConfirm: () => void;
+    } | null>(null);
 
     // Load data from localStorage on initial render
     useEffect(() => {
@@ -154,37 +161,110 @@ const App: React.FC = () => {
         });
     };
 
-    const handleDeleteAllPolls = () => {
-        hideUndoBar();
+    const handleDeleteAll = () => {
         setPolls({});
         setTemplates([]);
-        setIsConfirmDeleteOpen(false);
+        setConfirmAction(null);
+        hideUndoBar();
     };
 
-    const handleExport = () => {
+    const handleResetToDefaults = () => {
+        setPolls(basePollsData);
+        setTemplates(baseTemplatesData);
+        setConfirmAction(null);
+        hideUndoBar();
+    };
+
+    const handleDeletePollsOnly = () => {
+        setPolls({});
+        setConfirmAction(null);
+        hideUndoBar();
+    };
+
+    const requestDeleteAll = () => {
+        hideUndoBar();
+        setConfirmAction({
+            title: 'Delete All Data',
+            message: 'Are you sure you want to delete everything? This will permanently clear all polls and custom templates from your local browser storage.',
+            confirmText: 'Yes, Delete All',
+            onConfirm: handleDeleteAll,
+        });
+    };
+    
+    const requestResetToDefaults = () => {
+        hideUndoBar();
+        setConfirmAction({
+            title: 'Reset to Default Data',
+            message: 'Are you sure you want to reset? This will replace all current polls and templates with the default starting data.',
+            confirmText: 'Yes, Reset',
+            onConfirm: handleResetToDefaults,
+        });
+    };
+    
+    const requestDeletePollsOnly = () => {
+        hideUndoBar();
+        setConfirmAction({
+            title: 'Delete Polls Only',
+            message: 'Are you sure you want to delete all polls? Your custom templates will be preserved.',
+            confirmText: 'Yes, Delete Polls',
+            onConfirm: handleDeletePollsOnly,
+        });
+    };
+    
+    const handleExport = (format: 'text' | 'ahk') => {
         let exportText = "";
+        const fileExtension = 'txt';
+    
         const sortedPolls = Object.values(polls).sort((a: Poll, b: Poll) => {
             const catAOrder = categoryOrderMap.get(a.category) ?? 999;
             const catBOrder = categoryOrderMap.get(b.category) ?? 999;
             if (catAOrder !== catBOrder) return catAOrder - catBOrder;
             return (a.order || 0) - (b.order || 0);
         });
-
-        sortedPolls.forEach((poll) => {
-            exportText += `${poll.description}\n`;
-            if (poll.options && poll.options.length > 0) {
-                poll.options.forEach((option, index) => {
-                    exportText += `${index + 1}. ${option.text.trim()}\n`;
-                });
-            }
-            exportText += `\n`;
-        });
-
-        const blob = new Blob([exportText.trim() + '\n'], { type: 'text/plain' });
+    
+        if (format === 'text') {
+            sortedPolls.forEach((poll) => {
+                exportText += `${poll.description}\n`;
+                if (poll.options && poll.options.length > 0) {
+                    poll.options.forEach((option, index) => {
+                        exportText += `${index + 1}. ${option.text.trim()}\n`;
+                    });
+                }
+                exportText += `\n`;
+            });
+            exportText = exportText.trim() + '\n';
+        } else if (format === 'ahk') {
+            const lines: string[] = [];
+            sortedPolls.forEach((poll) => {
+                const sanitize = (text: string) => text.replace(/\|/g, '/').replace(/\n/g, ' ');
+                const parts = [sanitize(poll.description)];
+                if (poll.options && poll.options.length > 0) {
+                    poll.options.forEach((option) => {
+                        parts.push(sanitize(option.text.trim()));
+                    });
+                }
+                lines.push(parts.join('|'));
+            });
+            exportText = lines.join('\n---\n');
+        }
+    
+        const blob = new Blob([exportText], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Zerg_Wars_Polls_${new Date().toISOString().substring(0, 10)}.txt`;
+        a.download = `Zerg_Wars_Polls_${new Date().toISOString().substring(0, 10)}.${fileExtension}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadAhkScript = () => {
+        const blob = new Blob([ahkScriptContent], { type: 'application/x-autohotkey' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'DiscordPollHelper.ahk';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -221,25 +301,20 @@ const App: React.FC = () => {
                 if (typeof text !== 'string') throw new Error("File could not be read.");
                 const data = JSON.parse(text);
 
-                // Handles formats with a root 'polls' object:
-                // 1. ProjectData: { polls: Polls, templates: Template[] }
-                // 2. Polls-only: { polls: Polls }
                 if (data && typeof data === 'object' && 'polls' in data) {
                     setPolls(data.polls as Polls);
                     if ('templates' in data) {
                         setTemplates(data.templates as Template[]);
                         alert('Project loaded successfully!');
                     } else {
-                        setTemplates(baseTemplatesData); // Load default templates if not present
+                        setTemplates(baseTemplatesData);
                         alert('Project with polls data loaded successfully! Default templates have been added.');
                     }
-                // Handles legacy format where the root object is the Polls object
                 } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-                    // Heuristic check to see if it's a Polls object.
                     const firstKey = Object.keys(data)[0];
                     if (firstKey && data[firstKey] && typeof data[firstKey] === 'object' && 'description' in data[firstKey] && 'category' in data[firstKey]) {
                         setPolls(data as Polls);
-                        setTemplates(baseTemplatesData); // Load default templates for old format
+                        setTemplates(baseTemplatesData);
                         alert('Legacy project loaded successfully! Default templates have been added.');
                     } else {
                         throw new Error("Invalid file format: Unrecognized object structure.");
@@ -293,9 +368,12 @@ const App: React.FC = () => {
             <Header
                 onAddPoll={() => handleOpenAddModal()}
                 onExport={handleExport}
+                onDownloadAhkScript={handleDownloadAhkScript}
                 onSaveProject={handleSaveProject}
                 onTriggerLoad={() => fileInputRef.current?.click()}
-                onDeleteAll={() => setIsConfirmDeleteOpen(true)}
+                onResetToDefaults={requestResetToDefaults}
+                onDeletePolls={requestDeletePollsOnly}
+                onDeleteAll={requestDeleteAll}
                 onManageTemplates={() => setIsTemplateModalOpen(true)}
             />
             
@@ -365,10 +443,13 @@ const App: React.FC = () => {
                 />
             )}
 
-            {isConfirmDeleteOpen && (
+            {confirmAction && (
                 <ConfirmDeleteModal
-                    onConfirm={handleDeleteAllPolls}
-                    onClose={() => setIsConfirmDeleteOpen(false)}
+                    title={confirmAction.title}
+                    message={confirmAction.message}
+                    confirmText={confirmAction.confirmText}
+                    onConfirm={confirmAction.onConfirm}
+                    onClose={() => setConfirmAction(null)}
                 />
             )}
         </>
