@@ -9,7 +9,6 @@ export interface Poll {
   description: string;
   options: PollOption[];
   order: number;
-  archived?: boolean;
 }
 
 export type Polls = Record<string, Poll>;

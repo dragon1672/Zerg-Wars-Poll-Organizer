@@ -12,8 +12,6 @@ interface HeaderProps {
     onDeletePolls: () => void;
     onDeleteAll: () => void;
     onManageTemplates: () => void;
-    onViewArchives: () => void;
-    archivedCount: number;
 }
 
 const Dropdown: React.FC<{
@@ -54,7 +52,7 @@ const Dropdown: React.FC<{
 
 const Header: React.FC<HeaderProps> = ({ 
     theme, setTheme, onAddPoll, onExport, onDownloadAhkScript, onSaveProject, onTriggerLoad, 
-    onResetToDefaults, onDeletePolls, onDeleteAll, onManageTemplates, onViewArchives, archivedCount
+    onResetToDefaults, onDeletePolls, onDeleteAll, onManageTemplates
 }) => {
     
     const baseButtonClasses = "px-4 py-2 font-semibold rounded-xl shadow-lg transition flex items-center justify-center";
@@ -68,10 +66,6 @@ const Header: React.FC<HeaderProps> = ({
                 <div className="flex flex-wrap gap-3 mt-4 md:mt-0 items-center">
                     <button onClick={onAddPoll} className={`${baseButtonClasses} bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800`}> + Add Poll </button>
                     <button onClick={onManageTemplates} className={`${baseButtonClasses} bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800`}> Manage Templates </button>
-                    
-                     <button onClick={onViewArchives} className={`${baseButtonClasses} bg-gray-500 text-white hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700`}>
-                        Archived ({archivedCount})
-                    </button>
 
                     <Dropdown buttonText="Project" buttonClasses={`${baseButtonClasses} bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800`}>
                          <button onClick={onSaveProject} className={dropdownItemClasses}> Save Project (.json) </button>

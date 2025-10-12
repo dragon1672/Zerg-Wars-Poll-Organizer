@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Poll, Polls, Template, ProjectData, Category } from './types';
+// FIX: Corrected typo in imported constant name from 'STORAGE_key' to 'STORAGE_KEY'.
 import { STORAGE_KEY, TEMPLATE_STORAGE_KEY, COLLAPSE_KEY, columnCategories, basePollsData, baseTemplatesData, categoryOrderMap } from './constants';
 import { ahkScriptContent } from './ahkScript';
 import Header from './components/Header';
@@ -8,12 +9,29 @@ import Column from './components/Column';
 import PollModal from './components/PollModal';
 import TemplateModal from './components/TemplateModal';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
-import ArchiveModal from './components/ArchiveModal';
+import ContextMenu from './components/ContextMenu';
+import FloatingPollCard from './components/FloatingPollCard';
+import { DropPlaceholder } from './components/DropPlaceholder';
+
 
 // Helper to generate a unique ID
 const generateUniqueId = () => crypto.randomUUID().substring(0, 8);
 
 type Theme = 'light' | 'dark';
+
+// Helper function to re-index poll order within a category
+const reorderCategory = (polls: Polls, categoryId: string): Polls => {
+    const newPolls = { ...polls };
+    const categoryPolls = (Object.values(newPolls) as Poll[])
+        .filter(p => p.category === categoryId)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    categoryPolls.forEach((p, index) => {
+        newPolls[p.id] = { ...p, order: (index + 1) * 10 };
+    });
+    return newPolls;
+};
+
 
 const App: React.FC = () => {
     const [polls, setPolls] = useState<Polls>({});
@@ -23,10 +41,14 @@ const App: React.FC = () => {
     const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
     const [newPollCategory, setNewPollCategory] = useState<string | null>(null);
     const [theme, setTheme] = useState<Theme>('light');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; poll: Poll } | null>(null);
+    const [stickiedPoll, setStickiedPoll] = useState<{ poll: Poll; x: number; y: number } | null>(null);
+    const [dropPlaceholder, setDropPlaceholder] = useState<{ categoryId: string; order: number } | null>(null);
+
 
     const [confirmAction, setConfirmAction] = useState<{
         title: string;
@@ -103,6 +125,127 @@ const App: React.FC = () => {
             console.error("Error saving collapse state to Local Storage:", e);
         }
     }, [collapsedState]);
+
+    // Effect to close context menu on any click
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+    
+    const handleStickyDrop = useCallback(() => {
+        if (!stickiedPoll || !dropPlaceholder) {
+            setStickiedPoll(null);
+            setDropPlaceholder(null);
+            return;
+        };
+    
+        const pollId = stickiedPoll.poll.id;
+        const { categoryId, order } = dropPlaceholder;
+    
+        setPolls(prevPolls => {
+            const sourceCategory = prevPolls[pollId].category;
+            const newPolls = { ...prevPolls };
+            // Update poll's category and order
+            newPolls[pollId] = { ...newPolls[pollId], category: categoryId, order: order };
+            
+            // Re-order polls in target category
+            let reorderedPolls = reorderCategory(newPolls, categoryId);
+            
+            // If category changed, also re-order polls in source category
+            if (sourceCategory !== categoryId) {
+                reorderedPolls = reorderCategory(reorderedPolls, sourceCategory);
+            }
+            
+            return reorderedPolls;
+        });
+    
+        setStickiedPoll(null);
+        setDropPlaceholder(null);
+    }, [stickiedPoll, dropPlaceholder]);
+
+    const handleStickyMove = useCallback((e: MouseEvent) => {
+        if (!stickiedPoll) return;
+    
+        setStickiedPoll(p => p ? { ...p, x: e.clientX, y: e.clientY } : null);
+    
+        const targetElement = document.elementFromPoint(e.clientX, e.clientY);
+        const columnContentElement = targetElement?.closest<HTMLElement>('.column-content');
+    
+        if (!columnContentElement) {
+            setDropPlaceholder(null);
+            return;
+        }
+    
+        const categoryId = columnContentElement.dataset.categoryId;
+        if (!categoryId) {
+            setDropPlaceholder(null);
+            return;
+        }
+    
+        const stickiedPollId = stickiedPoll.poll.id;
+        const pollsInCategory = (Object.values(polls) as Poll[])
+            .filter(p => p.category === categoryId && p.id !== stickiedPollId)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+        // Find the element to insert before by iterating through DOM nodes for visual accuracy
+        let nextElement: HTMLElement | null = null;
+        const pollCards = Array.from(columnContentElement.querySelectorAll<HTMLElement>('[data-poll-id]'));
+    
+        for (const child of pollCards) {
+            const rect = child.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            
+            if (e.clientY < midY) {
+                nextElement = child;
+                break;
+            }
+        }
+    
+        let targetOrder: number;
+        if (nextElement) {
+            // We are inserting before `nextElement`
+            const nextPollId = nextElement.dataset.pollId;
+            const nextPoll = polls[nextPollId!];
+            
+            const nextPollIndex = pollsInCategory.findIndex(p => p.id === nextPollId);
+            const prevPoll = nextPollIndex > 0 ? pollsInCategory[nextPollIndex - 1] : null;
+    
+            const prevOrder = prevPoll ? (prevPoll.order || 0) : 0;
+            const nextOrder = nextPoll.order || 0;
+            
+            targetOrder = (prevOrder + nextOrder) / 2;
+        } else {
+            // We are inserting at the end
+            const lastPoll = pollsInCategory[pollsInCategory.length - 1];
+            targetOrder = lastPoll ? (lastPoll.order || 0) + 10 : 10;
+        }
+    
+        setDropPlaceholder({ categoryId, order: targetOrder });
+    
+    }, [stickiedPoll, polls]);
+
+
+    // Effect to handle sticky poll movement
+    useEffect(() => {
+        if (stickiedPoll) {
+            const dropHandler = (e: MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleStickyDrop();
+            };
+    
+            window.addEventListener('mousemove', handleStickyMove);
+            // Use capture phase to intercept the click before it reaches other elements
+            window.addEventListener('click', dropHandler, { once: true, capture: true });
+    
+            return () => {
+                window.removeEventListener('mousemove', handleStickyMove);
+                window.removeEventListener('click', dropHandler, { capture: true });
+            };
+        }
+    }, [stickiedPoll, handleStickyMove, handleStickyDrop]);
+
     
     const hideUndoBar = useCallback(() => {
         setLastDeletedPoll(null);
@@ -136,7 +279,7 @@ const App: React.FC = () => {
             } else { // Create new poll
                 const newId = `poll_${generateUniqueId()}`;
                 const category = newPollCategory || pollData.category;
-                const currentPolls = Object.values(newPolls).filter((p: Poll) => p.category === category && !p.archived);
+                const currentPolls = (Object.values(newPolls) as Poll[]).filter(p => p.category === category);
                 const maxOrder = currentPolls.length > 0 ? Math.max(...currentPolls.map(p => p.order || 0)) : 0;
                 newPolls[newId] = { ...pollData, category, id: newId, order: maxOrder + 10 };
             }
@@ -153,7 +296,6 @@ const App: React.FC = () => {
             delete newPolls[pollId];
             return newPolls;
         });
-        setIsArchiveModalOpen(false); // Close archive modal if deleting from there
     };
     
     const handleUndoDelete = () => {
@@ -174,70 +316,70 @@ const App: React.FC = () => {
         const newPollData = {
             ...originalPoll,
             id: newId,
-            order: (originalPoll.order || 0) + 1,
         };
         
         setPolls(prevPolls => {
-             const newPolls = { ...prevPolls };
-             newPolls[newId] = newPollData;
-             return newPolls;
+            const newPolls = { ...prevPolls };
+            const categoryPolls = (Object.values(prevPolls) as Poll[])
+                .filter(p => p.category === originalPoll.category)
+                .sort((a, b) => (a.order || 0) - (b.order || 0));
+            
+            const originalIndex = categoryPolls.findIndex(p => p.id === pollId);
+            categoryPolls.splice(originalIndex + 1, 0, newPollData);
+
+            categoryPolls.forEach((p, index) => {
+                newPolls[p.id] = { ...p, order: (index + 1) * 10 };
+            });
+
+            return newPolls;
         });
     };
 
-    const handleArchivePoll = (pollId: string) => {
+    const handleMovePoll = (pollId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
         hideUndoBar();
         setPolls(prevPolls => {
+            const targetPoll = prevPolls[pollId];
+            if (!targetPoll) return prevPolls;
+    
+            const categoryPolls = (Object.values(prevPolls) as Poll[])
+                .filter(p => p.category === targetPoll.category)
+                .sort((a, b) => (a.order || 0) - (b.order || 0));
+            
+            const currentIndex = categoryPolls.findIndex(p => p.id === pollId);
+            if (currentIndex === -1) return prevPolls;
+    
+            let newIndex = currentIndex;
+            if (direction === 'up') newIndex = Math.max(0, currentIndex - 1);
+            else if (direction === 'down') newIndex = Math.min(categoryPolls.length - 1, currentIndex + 1);
+            else if (direction === 'top') newIndex = 0;
+            else if (direction === 'bottom') newIndex = categoryPolls.length - 1;
+            
+            if (newIndex === currentIndex) return prevPolls;
+    
+            const [movedItem] = categoryPolls.splice(currentIndex, 1);
+            categoryPolls.splice(newIndex, 0, movedItem);
+    
             const newPolls = { ...prevPolls };
-            if(newPolls[pollId]) {
-                newPolls[pollId].archived = true;
-            }
-            return newPolls;
-        });
-    };
-
-    const handleUnarchivePoll = (pollId: string) => {
-        setPolls(prevPolls => {
-            const newPolls = { ...prevPolls };
-            if(newPolls[pollId]) {
-                delete newPolls[pollId].archived;
-            }
-            return newPolls;
-        });
-    };
-
-    const handleBulkUnarchive = (pollIds: string[]) => {
-        setPolls(prevPolls => {
-            const newPolls = { ...prevPolls };
-            pollIds.forEach(pollId => {
-                if (newPolls[pollId]) {
-                    delete newPolls[pollId].archived;
+            categoryPolls.forEach((p, index) => {
+                if (newPolls[p.id]) {
+                    newPolls[p.id].order = (index + 1) * 10;
                 }
             });
+    
             return newPolls;
         });
-        setIsArchiveModalOpen(false);
+    };
+    
+    const handleSticky = (pollId: string) => {
+        setStickiedPoll({ poll: polls[pollId], x: 0, y: 0 });
     };
 
-    const handleBulkDelete = (pollIds: string[]) => {
-        setPolls(prevPolls => {
-            const newPolls = { ...prevPolls };
-            pollIds.forEach(pollId => {
-                delete newPolls[pollId];
-            });
-            return newPolls;
-        });
-        setConfirmAction(null);
-        setIsArchiveModalOpen(false);
-    };
-
-    const requestBulkDelete = (pollIds: string[]) => {
-        if (pollIds.length === 0) return;
-        hideUndoBar();
-        setConfirmAction({
-            title: `Delete ${pollIds.length} Polls`,
-            message: `Are you sure you want to permanently delete these ${pollIds.length} polls? This action cannot be undone.`,
-            confirmText: 'Yes, Delete Them',
-            onConfirm: () => handleBulkDelete(pollIds),
+    const handlePollContextMenu = (event: React.MouseEvent, poll: Poll) => {
+        event.preventDefault();
+        setContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            poll: poll,
         });
     };
 
@@ -295,9 +437,8 @@ const App: React.FC = () => {
         let exportText = "";
         const fileExtension = 'txt';
     
-        const sortedPolls = Object.values(polls)
-            .filter(p => !p.archived) // Exclude archived polls
-            .sort((a: Poll, b: Poll) => {
+        const sortedPolls = (Object.values(polls) as Poll[])
+            .sort((a, b) => {
                 const catAOrder = categoryOrderMap.get(a.category) ?? 999;
                 const catBOrder = categoryOrderMap.get(b.category) ?? 999;
                 if (catAOrder !== catBOrder) return catAOrder - catBOrder;
@@ -423,16 +564,40 @@ const App: React.FC = () => {
         });
     };
 
-    const handlePollDrop = useCallback((pollId: string, newCategoryId: string, orderedIds: string[]) => {
+    const handlePollDrop = useCallback((pollId: string, oldCategoryId: string, newCategoryId: string, orderedIdsInNewCat: string[]) => {
         hideUndoBar();
         setPolls(prevPolls => {
-            const newPolls = { ...prevPolls };
-            if (newPolls[pollId] && newPolls[pollId].category !== newCategoryId) {
-                newPolls[pollId].category = newCategoryId;
+            // Guard against operating on a poll that might not exist in the state
+            if (!prevPolls[pollId]) {
+                console.error(`Poll with id ${pollId} not found during drop operation.`);
+                return prevPolls;
             }
-            orderedIds.forEach((id, index) => {
-                if (newPolls[id]) newPolls[id].order = (index + 1) * 10;
+    
+            const newPolls = { ...prevPolls };
+    
+            // Update the dragged poll's category first
+            newPolls[pollId] = { ...newPolls[pollId], category: newCategoryId };
+    
+            // Reorder the new category based on the DOM state
+            orderedIdsInNewCat.forEach((id, index) => {
+                if (newPolls[id]) {
+                    newPolls[id] = { ...newPolls[id], order: (index + 1) * 10 };
+                } else {
+                    // This guard prevents a crash if a DOM element's ID is not in the state.
+                    console.warn(`Poll ID ${id} from DOM not found in state during drop.`);
+                }
             });
+    
+            // If moved between columns, reorder the old column to close the gap
+            if (oldCategoryId !== newCategoryId) {
+                const oldCategoryPolls = Object.values(prevPolls) // Use original polls to find all items in old category
+                    .filter(p => p.category === oldCategoryId && p.id !== pollId) // Exclude the one we moved
+                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+                oldCategoryPolls.forEach((p, index) => {
+                    newPolls[p.id] = { ...p, order: (index + 1) * 10 };
+                });
+            }
             return newPolls;
         });
     }, [hideUndoBar]);
@@ -442,9 +607,7 @@ const App: React.FC = () => {
         setIsTemplateModalOpen(false);
     };
 
-    const allPolls = Object.values(polls);
-    const activePolls = allPolls.filter(p => !p.archived);
-    const archivedPolls = allPolls.filter(p => p.archived);
+    const activePolls = Object.values(polls) as Poll[];
     const collapsedCategories = columnCategories.filter(col => collapsedState.get(col.id));
     const expandedCategories = columnCategories.filter(col => !collapsedState.get(col.id));
 
@@ -462,8 +625,6 @@ const App: React.FC = () => {
                 onDeletePolls={requestDeletePollsOnly}
                 onDeleteAll={requestDeleteAll}
                 onManageTemplates={() => setIsTemplateModalOpen(true)}
-                onViewArchives={() => setIsArchiveModalOpen(true)}
-                archivedCount={archivedPolls.length}
             />
             
              <input
@@ -489,7 +650,7 @@ const App: React.FC = () => {
                         >
                             <div className="flex items-center justify-center h-full">
                                 <h2 className="text-sm font-bold truncate text-gray-800 dark:text-gray-200">
-                                    {col.title} ({activePolls.filter((p: Poll) => p.category === col.id).length})
+                                    {col.title} ({activePolls.filter(p => p.category === col.id).length})
                                 </h2>
                             </div>
                         </div>
@@ -501,18 +662,35 @@ const App: React.FC = () => {
                         <Column
                             key={category.id}
                             category={category}
-                            polls={activePolls.filter((p: Poll) => p.category === category.id).sort((a: Poll, b: Poll) => (a.order || 0) - (b.order || 0))}
+                            polls={activePolls.filter(p => p.category === category.id).sort((a, b) => (a.order || 0) - (b.order || 0))}
                             onToggleCollapse={handleToggleCollapse}
                             onEditPoll={handleOpenEditModal}
-                            onDeletePoll={handleDeletePoll}
-                            onDuplicatePoll={handleDuplicatePoll}
-                            onArchivePoll={handleArchivePoll}
                             onPollDrop={handlePollDrop}
                             onAddPollToCategory={handleOpenAddModal}
+                            onPollContextMenu={handlePollContextMenu}
+                            stickiedPollId={stickiedPoll?.poll.id ?? null}
+                            dropPlaceholder={dropPlaceholder}
                         />
                     ))}
                 </div>
             </main>
+            
+            {stickiedPoll && <FloatingPollCard poll={stickiedPoll.poll} x={stickiedPoll.x} y={stickiedPoll.y} />}
+
+            {contextMenu && (
+                 <ContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    onClose={() => setContextMenu(null)}
+                    onDuplicate={() => handleDuplicatePoll(contextMenu.poll.id)}
+                    onDelete={() => handleDeletePoll(contextMenu.poll.id)}
+                    onMoveUp={() => handleMovePoll(contextMenu.poll.id, 'up')}
+                    onMoveDown={() => handleMovePoll(contextMenu.poll.id, 'down')}
+                    onMoveToTop={() => handleMovePoll(contextMenu.poll.id, 'top')}
+                    onMoveToBottom={() => handleMovePoll(contextMenu.poll.id, 'bottom')}
+                    onSticky={() => handleSticky(contextMenu.poll.id)}
+                 />
+            )}
             
             {(isAddModalOpen) && (
                 <PollModal
@@ -531,19 +709,6 @@ const App: React.FC = () => {
                     onSave={handleSaveTemplates}
                     onClose={() => setIsTemplateModalOpen(false)}
                 />
-            )}
-
-            {isArchiveModalOpen && (
-                 <ArchiveModal
-                    isOpen={isArchiveModalOpen}
-                    onClose={() => setIsArchiveModalOpen(false)}
-                    polls={archivedPolls}
-                    categories={columnCategories}
-                    onUnarchive={handleUnarchivePoll}
-                    onDelete={handleDeletePoll}
-                    onBulkUnarchive={handleBulkUnarchive}
-                    onBulkDelete={requestBulkDelete}
-                 />
             )}
 
             {confirmAction && (

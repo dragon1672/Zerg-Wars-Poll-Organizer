@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Poll, PollOption, Category, Template } from '../types';
 import type { SortableEvent } from 'sortablejs';
 
@@ -43,21 +43,28 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('GENERAL');
     const [options, setOptions] = useState<PollOption[]>([]);
+    const [initialStateJSON, setInitialStateJSON] = useState<string>('');
     
     const optionsContainerRef = useRef<HTMLDivElement>(null);
     const descriptionRef = useRef<HTMLTextAreaElement>(null);
     const sortableInstance = useRef<any>(null);
+    const saveButtonRef = useRef<HTMLButtonElement>(null);
+    const modalContentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (poll) {
-            setDescription(poll.description || '');
-            setCategory(poll.category || 'GENERAL');
-            setOptions(JSON.parse(JSON.stringify(poll.options || [])));
-        } else {
-            setDescription('');
-            setCategory(defaultCategory || 'GENERAL');
-            setOptions([]);
-        }
+        const pollData = poll 
+            ? { description: poll.description || '', category: poll.category || 'GENERAL', options: poll.options || [] }
+            : { description: '', category: defaultCategory || 'GENERAL', options: [] };
+        
+        setDescription(pollData.description);
+        setCategory(pollData.category);
+        setOptions(JSON.parse(JSON.stringify(pollData.options)));
+
+        setInitialStateJSON(JSON.stringify({
+            description: pollData.description,
+            category: pollData.category,
+            options: pollData.options
+        }));
     }, [poll, defaultCategory]);
     
     useEffect(() => {
@@ -83,6 +90,42 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
             }
         };
     }, []);
+    
+    const isDirty = useCallback(() => {
+        const currentState = { description, category, options };
+        return JSON.stringify(currentState) !== initialStateJSON;
+    }, [description, category, options, initialStateJSON]);
+
+    const handleAttemptClose = useCallback(() => {
+        if (isDirty()) {
+            const saveButton = saveButtonRef.current;
+            if (saveButton) {
+                saveButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                saveButton.classList.add('animate-pulse', 'ring-2', 'ring-offset-2', 'ring-red-500', 'dark:ring-red-400');
+                setTimeout(() => {
+                    saveButton.classList.remove('animate-pulse', 'ring-2', 'ring-offset-2', 'ring-red-500', 'dark:ring-red-400');
+                }, 2500);
+            }
+        } else {
+            onClose();
+        }
+    }, [isDirty, onClose]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                handleAttemptClose();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [handleAttemptClose]);
+    
+    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (modalContentRef.current && !modalContentRef.current.contains(e.target as Node)) {
+            handleAttemptClose();
+        }
+    };
     
     const handleFormat = (type: FormatType) => {
         const textarea = descriptionRef.current;
@@ -137,8 +180,8 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
     const templateColors = ['orange', 'purple', 'teal', 'cyan', 'pink', 'lime'];
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-center items-start bg-black bg-opacity-50 overflow-y-auto p-4 pt-12">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-11/12 max-w-2xl my-8 transform transition-all duration-300">
+        <div className="fixed inset-0 z-50 flex justify-center items-start bg-black bg-opacity-50 overflow-y-auto p-4 pt-12" onMouseDown={handleBackdropClick}>
+            <div ref={modalContentRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-11/12 max-w-2xl my-8 transform transition-all duration-300">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4 border-b dark:border-gray-700 pb-2">{poll ? 'Edit Poll' : 'Add New Poll'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="mb-6">
@@ -193,7 +236,7 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
                     </div>
                     <div className="flex justify-end space-x-3 border-t dark:border-gray-700 pt-4">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-xl hover:bg-gray-300 transition dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"> Cancel </button>
-                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md transition"> Save Poll </button>
+                        <button ref={saveButtonRef} type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md transition"> Save Poll </button>
                     </div>
                 </form>
             </div>
