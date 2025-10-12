@@ -26,8 +26,8 @@ SendMode Input
 
 ; --- Script Configuration ---
 timeToFocus := 5000  ; Time to wait for user to focus Discord window (in milliseconds)
-shortDelay := 500    ; Delay between sending commands to Discord (allows UI to update)
-longDelay := 1000    ; Delay between submitting one poll and starting the next one
+shortDelay := 200    ; Delay between sending commands to Discord (allows UI to update)
+longDelay := 700     ; Delay between submitting one poll and starting the next one
 
 ; --- Main Script ---
 
@@ -74,12 +74,13 @@ Loop, % pollsArray.MaxIndex()
     optionsCount := pollParts.Length() - 1
 
     ; --- Build and Send the Poll Message ---
-    pollMessage := "**" . question . "**"
+    pollMessage := question ; Descriptions can now contain Discord markdown
+    pollMessage .= "\`n"
     Loop, %optionsCount%
     {
         optionIndex := A_Index + 1
         currentOption := pollParts[optionIndex]
-        pollMessage .= "\`n" . A_Index . ". " . currentOption
+        pollMessage .= "\`n  " . A_Index . ". " . currentOption
     }
 
     ; Use clipboard for reliability with special characters and multi-line content
@@ -102,7 +103,6 @@ Loop, % pollsArray.MaxIndex()
             break ; Stop if there are more than 10 options
         }
 
-        ; FIX: In AHK v1, 'Send +' is for the Shift modifier. '{+}' must be used to send a literal plus sign.
         Send, {+} ; This opens the 'Add Reaction' menu on the focused message.
         Sleep, %shortDelay%
 

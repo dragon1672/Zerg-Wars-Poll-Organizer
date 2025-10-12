@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { Poll, Polls, Template, ProjectData } from './types';
+import type { Poll, Polls, Template, ProjectData, Category } from './types';
 import { STORAGE_KEY, TEMPLATE_STORAGE_KEY, COLLAPSE_KEY, columnCategories, basePollsData, baseTemplatesData, categoryOrderMap } from './constants';
 import { ahkScriptContent } from './ahkScript';
 import Header from './components/Header';
@@ -9,9 +8,12 @@ import Column from './components/Column';
 import PollModal from './components/PollModal';
 import TemplateModal from './components/TemplateModal';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
+import ArchiveModal from './components/ArchiveModal';
 
 // Helper to generate a unique ID
 const generateUniqueId = () => crypto.randomUUID().substring(0, 8);
+
+type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
     const [polls, setPolls] = useState<Polls>({});
@@ -21,7 +23,9 @@ const App: React.FC = () => {
     const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
     const [newPollCategory, setNewPollCategory] = useState<string | null>(null);
+    const [theme, setTheme] = useState<Theme>('light');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [confirmAction, setConfirmAction] = useState<{
@@ -31,7 +35,7 @@ const App: React.FC = () => {
         onConfirm: () => void;
     } | null>(null);
 
-    // Load data from localStorage on initial render
+    // Load data and theme from localStorage on initial render
     useEffect(() => {
         try {
             const storedPolls = localStorage.getItem(STORAGE_KEY);
@@ -53,7 +57,25 @@ const App: React.FC = () => {
             setPolls(basePollsData);
             setTemplates(baseTemplatesData);
         }
+
+        const storedTheme = localStorage.getItem('theme') as Theme | null;
+        if (storedTheme) {
+            setTheme(storedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            setTheme('dark');
+        }
     }, []);
+
+    // Effect to apply and save theme
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+
 
     // Save polls to localStorage whenever they change
     useEffect(() => {
@@ -114,7 +136,7 @@ const App: React.FC = () => {
             } else { // Create new poll
                 const newId = `poll_${generateUniqueId()}`;
                 const category = newPollCategory || pollData.category;
-                const currentPolls = Object.values(newPolls).filter((p: Poll) => p.category === category);
+                const currentPolls = Object.values(newPolls).filter((p: Poll) => p.category === category && !p.archived);
                 const maxOrder = currentPolls.length > 0 ? Math.max(...currentPolls.map(p => p.order || 0)) : 0;
                 newPolls[newId] = { ...pollData, category, id: newId, order: maxOrder + 10 };
             }
@@ -131,6 +153,7 @@ const App: React.FC = () => {
             delete newPolls[pollId];
             return newPolls;
         });
+        setIsArchiveModalOpen(false); // Close archive modal if deleting from there
     };
     
     const handleUndoDelete = () => {
@@ -158,6 +181,63 @@ const App: React.FC = () => {
              const newPolls = { ...prevPolls };
              newPolls[newId] = newPollData;
              return newPolls;
+        });
+    };
+
+    const handleArchivePoll = (pollId: string) => {
+        hideUndoBar();
+        setPolls(prevPolls => {
+            const newPolls = { ...prevPolls };
+            if(newPolls[pollId]) {
+                newPolls[pollId].archived = true;
+            }
+            return newPolls;
+        });
+    };
+
+    const handleUnarchivePoll = (pollId: string) => {
+        setPolls(prevPolls => {
+            const newPolls = { ...prevPolls };
+            if(newPolls[pollId]) {
+                delete newPolls[pollId].archived;
+            }
+            return newPolls;
+        });
+    };
+
+    const handleBulkUnarchive = (pollIds: string[]) => {
+        setPolls(prevPolls => {
+            const newPolls = { ...prevPolls };
+            pollIds.forEach(pollId => {
+                if (newPolls[pollId]) {
+                    delete newPolls[pollId].archived;
+                }
+            });
+            return newPolls;
+        });
+        setIsArchiveModalOpen(false);
+    };
+
+    const handleBulkDelete = (pollIds: string[]) => {
+        setPolls(prevPolls => {
+            const newPolls = { ...prevPolls };
+            pollIds.forEach(pollId => {
+                delete newPolls[pollId];
+            });
+            return newPolls;
+        });
+        setConfirmAction(null);
+        setIsArchiveModalOpen(false);
+    };
+
+    const requestBulkDelete = (pollIds: string[]) => {
+        if (pollIds.length === 0) return;
+        hideUndoBar();
+        setConfirmAction({
+            title: `Delete ${pollIds.length} Polls`,
+            message: `Are you sure you want to permanently delete these ${pollIds.length} polls? This action cannot be undone.`,
+            confirmText: 'Yes, Delete Them',
+            onConfirm: () => handleBulkDelete(pollIds),
         });
     };
 
@@ -215,12 +295,14 @@ const App: React.FC = () => {
         let exportText = "";
         const fileExtension = 'txt';
     
-        const sortedPolls = Object.values(polls).sort((a: Poll, b: Poll) => {
-            const catAOrder = categoryOrderMap.get(a.category) ?? 999;
-            const catBOrder = categoryOrderMap.get(b.category) ?? 999;
-            if (catAOrder !== catBOrder) return catAOrder - catBOrder;
-            return (a.order || 0) - (b.order || 0);
-        });
+        const sortedPolls = Object.values(polls)
+            .filter(p => !p.archived) // Exclude archived polls
+            .sort((a: Poll, b: Poll) => {
+                const catAOrder = categoryOrderMap.get(a.category) ?? 999;
+                const catBOrder = categoryOrderMap.get(b.category) ?? 999;
+                if (catAOrder !== catBOrder) return catAOrder - catBOrder;
+                return (a.order || 0) - (b.order || 0);
+            });
     
         if (format === 'text') {
             sortedPolls.forEach((poll) => {
@@ -237,7 +319,7 @@ const App: React.FC = () => {
             const lines: string[] = [];
             sortedPolls.forEach((poll) => {
                 const sanitize = (text: string) => text.replace(/\|/g, '/').replace(/\n/g, ' ');
-                const parts = [sanitize(poll.description)];
+                const parts = [poll.description]; // Keep description as is for markdown
                 if (poll.options && poll.options.length > 0) {
                     poll.options.forEach((option) => {
                         parts.push(sanitize(option.text.trim()));
@@ -360,12 +442,17 @@ const App: React.FC = () => {
         setIsTemplateModalOpen(false);
     };
 
+    const allPolls = Object.values(polls);
+    const activePolls = allPolls.filter(p => !p.archived);
+    const archivedPolls = allPolls.filter(p => p.archived);
     const collapsedCategories = columnCategories.filter(col => collapsedState.get(col.id));
     const expandedCategories = columnCategories.filter(col => !collapsedState.get(col.id));
 
     return (
         <>
             <Header
+                theme={theme}
+                setTheme={setTheme}
                 onAddPoll={() => handleOpenAddModal()}
                 onExport={handleExport}
                 onDownloadAhkScript={handleDownloadAhkScript}
@@ -375,6 +462,8 @@ const App: React.FC = () => {
                 onDeletePolls={requestDeletePollsOnly}
                 onDeleteAll={requestDeleteAll}
                 onManageTemplates={() => setIsTemplateModalOpen(true)}
+                onViewArchives={() => setIsArchiveModalOpen(true)}
+                archivedCount={archivedPolls.length}
             />
             
              <input
@@ -388,19 +477,19 @@ const App: React.FC = () => {
             <UndoBar lastDeletedPoll={lastDeletedPoll} onUndo={handleUndoDelete} />
 
             <main className="p-4 pt-0">
-                <div id="collapsed-columns-container" className="flex flex-wrap gap-3 mb-6 p-2 rounded-xl bg-gray-100/70 shadow-inner min-h-[66px]">
+                <div id="collapsed-columns-container" className="flex flex-wrap gap-3 mb-6 p-2 rounded-xl bg-gray-100/70 dark:bg-gray-900/70 shadow-inner min-h-[66px]">
                     {collapsedCategories.length === 0 && (
-                         <p className="text-sm text-gray-500 p-2">All categories are expanded. Click a column header to collapse it.</p>
+                         <p className="text-sm text-gray-500 dark:text-gray-400 p-2">All categories are expanded. Click a column header to collapse it.</p>
                     )}
                     {collapsedCategories.map(col => (
                         <div
                             key={col.id}
-                            className={`flex-shrink-0 w-[150px] h-[50px] p-3 rounded-xl border-l-4 ${col.border} ${col.color} shadow-lg cursor-pointer transition-all duration-200 ease-in-out hover:opacity-90 hover:shadow-xl`}
+                            className={`flex-shrink-0 w-[150px] h-[50px] p-3 rounded-xl border-l-4 ${col.border} ${col.color} dark:bg-opacity-30 shadow-lg cursor-pointer transition-all duration-200 ease-in-out hover:opacity-90 hover:shadow-xl`}
                             onClick={() => handleToggleCollapse(col.id)}
                         >
                             <div className="flex items-center justify-center h-full">
-                                <h2 className="text-sm font-bold truncate text-gray-800">
-                                    {col.title} ({Object.values(polls).filter((p: Poll) => p.category === col.id).length})
+                                <h2 className="text-sm font-bold truncate text-gray-800 dark:text-gray-200">
+                                    {col.title} ({activePolls.filter((p: Poll) => p.category === col.id).length})
                                 </h2>
                             </div>
                         </div>
@@ -412,11 +501,12 @@ const App: React.FC = () => {
                         <Column
                             key={category.id}
                             category={category}
-                            polls={Object.values(polls).filter((p: Poll) => p.category === category.id).sort((a: Poll, b: Poll) => (a.order || 0) - (b.order || 0))}
+                            polls={activePolls.filter((p: Poll) => p.category === category.id).sort((a: Poll, b: Poll) => (a.order || 0) - (b.order || 0))}
                             onToggleCollapse={handleToggleCollapse}
                             onEditPoll={handleOpenEditModal}
                             onDeletePoll={handleDeletePoll}
                             onDuplicatePoll={handleDuplicatePoll}
+                            onArchivePoll={handleArchivePoll}
                             onPollDrop={handlePollDrop}
                             onAddPollToCategory={handleOpenAddModal}
                         />
@@ -441,6 +531,19 @@ const App: React.FC = () => {
                     onSave={handleSaveTemplates}
                     onClose={() => setIsTemplateModalOpen(false)}
                 />
+            )}
+
+            {isArchiveModalOpen && (
+                 <ArchiveModal
+                    isOpen={isArchiveModalOpen}
+                    onClose={() => setIsArchiveModalOpen(false)}
+                    polls={archivedPolls}
+                    categories={columnCategories}
+                    onUnarchive={handleUnarchivePoll}
+                    onDelete={handleDeletePoll}
+                    onBulkUnarchive={handleBulkUnarchive}
+                    onBulkDelete={requestBulkDelete}
+                 />
             )}
 
             {confirmAction && (

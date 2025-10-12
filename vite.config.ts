@@ -17,8 +17,7 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          // Fix: Replace `__dirname` with `'./'` to resolve from the project root.
-          // `__dirname` is not available in modern JavaScript modules, which Vite uses for its config.
+          // Resolve `@` to the project root.
           '@': path.resolve('./', '.'),
         }
       }

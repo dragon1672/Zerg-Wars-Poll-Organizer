@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import type { Poll, Category } from '../types';
 import PollCard from './PollCard';
@@ -14,11 +13,12 @@ interface ColumnProps {
     onEditPoll: (id: string) => void;
     onDeletePoll: (id: string) => void;
     onDuplicatePoll: (id: string) => void;
+    onArchivePoll: (id: string) => void;
     onPollDrop: (pollId: string, newCategoryId: string, orderedIds: string[]) => void;
     onAddPollToCategory: (categoryId: string) => void;
 }
 
-const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEditPoll, onDeletePoll, onDuplicatePoll, onPollDrop, onAddPollToCategory }) => {
+const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEditPoll, onDeletePoll, onDuplicatePoll, onArchivePoll, onPollDrop, onAddPollToCategory }) => {
     const contentRef = useRef<HTMLDivElement>(null);
     const sortableInstance = useRef<any>(null);
 
@@ -34,7 +34,6 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEd
                     
                     if (!pollId || !newCategoryEl) return;
                     
-                    // FIX: Cast element to HTMLElement to access dataset property.
                     const newCategoryId = (newCategoryEl as HTMLElement).dataset.categoryId;
                     if (!newCategoryId) return;
 
@@ -56,12 +55,12 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEd
     }, []);
 
     return (
-        <div className={`expanded-column flex-shrink-0 w-full md:w-auto md:min-w-[300px] md:flex-1 bg-white shadow-xl rounded-xl border-l-4 ${category.border}`} data-category-id={category.id}>
-            <div className="p-3 cursor-pointer select-none bg-gray-50 rounded-t-xl flex justify-between items-center border-b" onClick={() => onToggleCollapse(category.id)}>
-                <h2 className="text-lg font-bold text-gray-800">{category.title} ({polls.length})</h2>
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+        <div className={`expanded-column flex-shrink-0 w-full md:w-auto md:min-w-[300px] md:flex-1 bg-white dark:bg-gray-800 shadow-xl rounded-xl border-l-4 ${category.border}`} data-category-id={category.id}>
+            <div className="p-3 cursor-pointer select-none bg-gray-50 dark:bg-gray-700/50 rounded-t-xl flex justify-between items-center border-b dark:border-gray-700" onClick={() => onToggleCollapse(category.id)}>
+                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">{category.title} ({polls.length})</h2>
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
             </div>
-            <div className={`flex flex-col ${category.color} rounded-b-xl`}>
+            <div className={`flex flex-col ${category.color} dark:bg-opacity-30 rounded-b-xl`}>
                 <div ref={contentRef} className="min-h-[100px] p-1 flex-grow">
                     {polls.map(poll => (
                         <PollCard 
@@ -70,13 +69,14 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onEd
                             onEdit={onEditPoll}
                             onDelete={onDeletePoll}
                             onDuplicate={onDuplicatePoll}
+                            onArchive={onArchivePoll}
                         />
                     ))}
                 </div>
                 <div className="p-2">
                     <button 
                         onClick={() => onAddPollToCategory(category.id)} 
-                        className="w-full text-center text-sm text-gray-600 hover:bg-gray-300/60 rounded-lg p-2 transition-colors">
+                        className="w-full text-center text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-700/60 rounded-lg p-2 transition-colors">
                         + Add a poll
                     </button>
                 </div>

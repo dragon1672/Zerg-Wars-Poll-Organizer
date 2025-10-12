@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import type { Template } from '../types';
 import type { SortableEvent } from 'sortablejs';
@@ -56,29 +55,29 @@ const TemplateEditor: React.FC<{
     };
 
     return (
-        <div className="p-4 bg-gray-50 rounded-lg border mt-2">
-            <h3 className="text-lg font-bold text-gray-800 mb-3">{template.id ? 'Edit Template' : 'Create New Template'}</h3>
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600 mt-2">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-3">{template.id ? 'Edit Template' : 'Create New Template'}</h3>
             <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} className="block w-full rounded-lg border-gray-300 p-2 border shadow-sm" />
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Template Name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} className="block w-full rounded-lg border-gray-300 p-2 border shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
             </div>
             <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Options</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Options</label>
                 <div ref={optionsContainerRef} className="space-y-2">
                     {options.map((opt, index) => (
                         <div key={index} className="flex items-center">
-                            <span className="drag-handle cursor-move pr-2 text-gray-400"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></span>
-                            <input type="text" value={opt.text} onChange={e => handleUpdateOption(index, e.target.value)} className="flex-grow rounded-md border-gray-300 p-1 border text-sm" />
-                            <button onClick={() => handleRemoveOption(index)} className="ml-2 text-red-500 p-1 hover:bg-red-100 rounded-full" title="Remove Option">
+                            <span className="drag-handle cursor-move pr-2 text-gray-400 dark:text-gray-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></span>
+                            <input type="text" value={opt.text} onChange={e => handleUpdateOption(index, e.target.value)} className="flex-grow rounded-md border-gray-300 p-1 border text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
+                            <button onClick={() => handleRemoveOption(index)} className="ml-2 text-red-500 dark:text-red-400 p-1 hover:bg-red-100 dark:hover:bg-gray-600 rounded-full" title="Remove Option">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
                     ))}
                 </div>
-                <button onClick={handleAddOption} className="mt-3 px-3 py-1 text-xs font-medium text-indigo-600 border border-indigo-600 rounded-full hover:bg-indigo-50 transition">+ Add Option</button>
+                <button onClick={handleAddOption} className="mt-3 px-3 py-1 text-xs font-medium text-indigo-600 border border-indigo-600 rounded-full hover:bg-indigo-50 transition dark:text-indigo-400 dark:border-indigo-400 dark:hover:bg-indigo-900/40">+ Add Option</button>
             </div>
-            <div className="flex justify-end space-x-2 mt-4 border-t pt-3">
-                <button onClick={onCancel} className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+            <div className="flex justify-end space-x-2 mt-4 border-t dark:border-gray-600 pt-3">
+                <button onClick={onCancel} className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
                 <button onClick={handleSaveClick} className="px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">Save Template</button>
             </div>
         </div>
@@ -113,9 +112,9 @@ const TemplateModal: React.FC<TemplateModalProps> = ({ templates, onSave, onClos
 
     return (
         <div className="fixed inset-0 z-50 flex justify-center items-start bg-black bg-opacity-50 overflow-y-auto p-4 pt-12">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-11/12 max-w-2xl my-8">
-                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                    <h2 className="text-2xl font-bold text-gray-800">Manage Templates</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-11/12 max-w-2xl my-8">
+                <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Manage Templates</h2>
                     <button onClick={handleAddNew} className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl shadow-lg hover:bg-indigo-700 transition">+ Create New</button>
                 </div>
                 
@@ -129,13 +128,13 @@ const TemplateModal: React.FC<TemplateModalProps> = ({ templates, onSave, onClos
                                     onCancel={() => setEditingTemplateId(null)}
                                 />
                             ) : (
-                                <div className="p-3 bg-white rounded-lg border flex justify-between items-center">
+                                <div className="p-3 bg-white dark:bg-gray-700 rounded-lg border dark:border-gray-600 flex justify-between items-center">
                                     <div>
-                                        <p className="font-bold">{template.name}</p>
-                                        <p className="text-xs text-gray-500">{template.options.length} options</p>
+                                        <p className="font-bold dark:text-gray-200">{template.name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{template.options.length} options</p>
                                     </div>
                                     <div className="space-x-2">
-                                        <button onClick={() => setEditingTemplateId(template.id)} className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Edit</button>
+                                        <button onClick={() => setEditingTemplateId(template.id)} className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Edit</button>
                                         <button onClick={() => handleDeleteTemplate(template.id)} className="px-3 py-1 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">Delete</button>
                                     </div>
                                 </div>
@@ -144,8 +143,8 @@ const TemplateModal: React.FC<TemplateModalProps> = ({ templates, onSave, onClos
                     ))}
                 </div>
 
-                <div className="flex justify-end space-x-3 border-t pt-4 mt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-xl hover:bg-gray-300 transition">Close</button>
+                <div className="flex justify-end space-x-3 border-t dark:border-gray-700 pt-4 mt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-xl hover:bg-gray-300 transition dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Close</button>
                     <button type="button" onClick={handleFinalSave} className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-xl hover:bg-purple-700 shadow-md transition">Save & Close</button>
                 </div>
             </div>
