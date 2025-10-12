@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Poll, PollOption, Category, Template } from '../types';
 import type { SortableEvent } from 'sortablejs';
-
-declare const Sortable: any;
+import Sortable from 'sortablejs';
 
 interface PollModalProps {
     poll: Poll | null;

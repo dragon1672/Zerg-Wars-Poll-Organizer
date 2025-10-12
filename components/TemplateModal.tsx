@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Template } from '../types';
 import type { SortableEvent } from 'sortablejs';
-
-declare const Sortable: any;
+import Sortable from 'sortablejs';
 
 interface TemplateModalProps {
     templates: Template[];

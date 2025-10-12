@@ -49,6 +49,7 @@ const App: React.FC = () => {
     const [stickiedPoll, setStickiedPoll] = useState<{ poll: Poll; x: number; y: number } | null>(null);
     const [dropPlaceholder, setDropPlaceholder] = useState<{ categoryId: string; order: number } | null>(null);
     const [dragInfo, setDragInfo] = useState<{ pollId: string; startX: number; startY: number; } | null>(null);
+    const isDraggingRef = useRef(false);
 
 
     const [confirmAction, setConfirmAction] = useState<{
@@ -157,8 +158,13 @@ const App: React.FC = () => {
     }, [hideUndoBar]);
     
     const handleOpenEditModal = useCallback((pollId: string) => {
+        const pollToEdit = polls[pollId];
+        if (!pollToEdit) {
+            console.error(`Attempted to edit non-existent poll with ID: ${pollId}`);
+            return;
+        }
         hideUndoBar();
-        setEditingPoll(polls[pollId]);
+        setEditingPoll(pollToEdit);
         setNewPollCategory(null);
         setIsAddModalOpen(true);
     }, [polls, hideUndoBar]);
@@ -259,31 +265,44 @@ const App: React.FC = () => {
         if (!contextMenu) return;
         setStickiedPoll({ poll: contextMenu.poll, x: contextMenu.x, y: contextMenu.y });
     }, [contextMenu]);
+    
+    // Create refs for state and callbacks needed in listeners to avoid stale closures
+    const pollsRef = useRef(polls);
+    useEffect(() => {
+        pollsRef.current = polls;
+    }, [polls]);
+
+    const handleOpenEditModalRef = useRef(handleOpenEditModal);
+    useEffect(() => {
+        handleOpenEditModalRef.current = handleOpenEditModal;
+    }, [handleOpenEditModal]);
+
 
     // Effect to handle click vs. drag initiation
     useEffect(() => {
         if (!dragInfo) return;
 
         const handleMouseMove = (e: MouseEvent) => {
-            // If already dragging (stickied), this listener's job is done.
-            if (stickiedPoll) return;
+            if (isDraggingRef.current) return;
 
-            // Not dragging yet, check threshold
             const DRAG_THRESHOLD = 5;
             const dx = e.clientX - dragInfo.startX;
             const dy = e.clientY - dragInfo.startY;
             if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-                setStickiedPoll({ poll: polls[dragInfo.pollId], x: e.clientX, y: e.clientY });
+                const currentPolls = pollsRef.current;
+                if (!currentPolls[dragInfo.pollId]) {
+                    setDragInfo(null);
+                    return;
+                }
+                isDraggingRef.current = true;
+                setStickiedPoll({ poll: currentPolls[dragInfo.pollId], x: e.clientX, y: e.clientY });
             }
         };
 
         const handleMouseUp = () => {
-             // If a drag never started, it was a click.
-            if (!stickiedPoll) {
-                handleOpenEditModal(dragInfo.pollId);
+            if (!isDraggingRef.current) {
+                handleOpenEditModalRef.current(dragInfo.pollId);
             }
-            // The drop itself is handled by the other useEffect.
-            // We just need to clear the drag initiation state.
             setDragInfo(null);
         };
         
@@ -294,7 +313,8 @@ const App: React.FC = () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [dragInfo, stickiedPoll, polls, handleOpenEditModal]);
+    }, [dragInfo]);
+
 
     // Effect to handle active dragging (moving and dropping the stickied card)
     useEffect(() => {
@@ -320,6 +340,8 @@ const App: React.FC = () => {
     const handlePollMouseDown = (event: React.MouseEvent, pollId: string) => {
         // Prevent starting a drag on right-click
         if (event.button !== 0) return;
+
+        isDraggingRef.current = false; // Reset drag state on new mousedown
         
         setDragInfo({
           pollId,
