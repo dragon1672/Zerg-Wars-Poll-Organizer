@@ -612,7 +612,7 @@ const App: React.FC = () => {
     const expandedCategories = columnCategories.filter(col => !collapsedState.get(col.id));
 
     return (
-        <>
+        <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
             <Header
                 theme={theme}
                 setTheme={setTheme}
@@ -637,8 +637,8 @@ const App: React.FC = () => {
             
             <UndoBar lastDeletedPoll={lastDeletedPoll} onUndo={handleUndoDelete} />
 
-            <main className="p-4 pt-0">
-                <div id="collapsed-columns-container" className="flex flex-wrap gap-3 mb-6 p-2 rounded-xl bg-gray-100/70 dark:bg-gray-900/70 shadow-inner min-h-[66px]">
+            <main className="flex-grow flex flex-col overflow-hidden p-4 gap-4">
+                <div id="collapsed-columns-container" className="flex-shrink-0 flex flex-wrap gap-3 p-2 rounded-xl bg-gray-100/70 dark:bg-gray-900/70 shadow-inner max-h-[140px] overflow-y-auto">
                     {collapsedCategories.length === 0 && (
                          <p className="text-sm text-gray-500 dark:text-gray-400 p-2">All categories are expanded. Click a column header to collapse it.</p>
                     )}
@@ -657,7 +657,7 @@ const App: React.FC = () => {
                     ))}
                 </div>
                 
-                <div id="expanded-columns-container" className="flex flex-col md:flex-row gap-4 items-start pb-4 overflow-x-auto">
+                <div id="expanded-columns-container" className="flex-grow flex flex-row gap-4 overflow-y-hidden overflow-x-auto">
                     {expandedCategories.map(category => (
                         <Column
                             key={category.id}
@@ -720,7 +720,7 @@ const App: React.FC = () => {
                     onClose={() => setConfirmAction(null)}
                 />
             )}
-        </>
+        </div>
     );
 };
 
