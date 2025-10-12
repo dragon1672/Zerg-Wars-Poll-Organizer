@@ -6,11 +6,11 @@ interface ContextMenuProps {
     onClose: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
+    onStickyMove: () => void;
     onMoveUp: () => void;
     onMoveDown: () => void;
     onMoveToTop: () => void;
     onMoveToBottom: () => void;
-    onSticky: () => void;
 }
 
 const ContextMenuItem: React.FC<{ onClick: (e: React.MouseEvent) => void; children: React.ReactNode; className?: string }> = ({ onClick, children, className = '' }) => (
@@ -22,7 +22,7 @@ const ContextMenuItem: React.FC<{ onClick: (e: React.MouseEvent) => void; childr
     </button>
 );
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, onDuplicate, onDelete, onMoveUp, onMoveDown, onMoveToTop, onMoveToBottom, onSticky }) => {
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, onDuplicate, onDelete, onStickyMove, onMoveUp, onMoveDown, onMoveToTop, onMoveToBottom }) => {
     const style = { top: y, left: x };
 
     const handleAction = (e: React.MouseEvent, action: () => void) => {
@@ -40,9 +40,9 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, onDuplicate, o
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-6 0h.01M16 7h.01M16 7v8a2 2 0 002 2h2a2 2 0 002-2v-4"></path></svg>
                 Duplicate
             </ContextMenuItem>
-            <ContextMenuItem onClick={(e) => handleAction(e, onSticky)}>
-                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.374a15.28 15.28 0 0 1-3.08-3.08-15.28 15.28 0 0 1-3.08-3.08A15.28 15.28 0 0 1 3 9.174a15.28 15.28 0 0 1 3.08-3.08A15.28 15.28 0 0 1 9.174 3a15.28 15.28 0 0 1 3.08 3.08A15.28 15.28 0 0 1 18.338 9.174a15.28 15.28 0 0 1-3.08 3.08A15.28 15.28 0 0 1 9.174 18.338a15.28 15.28 0 0 1-3.08 3.08Z" /></svg>
-                Sticky Move
+            <ContextMenuItem onClick={(e) => handleAction(e, onStickyMove)}>
+                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z"></path></svg>
+                 Sticky Move
             </ContextMenuItem>
             <div className="border-t my-1 border-gray-200 dark:border-gray-600"></div>
             <ContextMenuItem onClick={(e) => handleAction(e, onMoveUp)}>

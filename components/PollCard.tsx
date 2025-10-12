@@ -3,12 +3,12 @@ import type { Poll } from '../types';
 
 interface PollCardProps {
     poll: Poll;
-    onEdit: (id: string) => void;
+    onMouseDown: (event: React.MouseEvent, pollId: string) => void;
     onContextMenu: (event: React.MouseEvent, poll: Poll) => void;
     isStickied: boolean;
 }
 
-const PollCard: React.FC<PollCardProps> = ({ poll, onEdit, onContextMenu, isStickied }) => {
+const PollCard: React.FC<PollCardProps> = ({ poll, onMouseDown, onContextMenu, isStickied }) => {
 
     if (isStickied) {
         return (
@@ -21,8 +21,8 @@ const PollCard: React.FC<PollCardProps> = ({ poll, onEdit, onContextMenu, isStic
     return (
         <div 
             data-poll-id={poll.id} 
-            className="bg-white dark:bg-gray-700 p-3 m-1 rounded-xl shadow-md cursor-grab hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500 transition-shadow relative"
-            onClick={() => onEdit(poll.id)}
+            className="bg-white dark:bg-gray-700 p-3 m-1 rounded-xl shadow-md cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500 transition-shadow relative"
+            onMouseDown={(e) => onMouseDown(e, poll.id)}
             onContextMenu={(e) => {
                 e.stopPropagation(); // Prevent parent context menus
                 onContextMenu(e, poll);

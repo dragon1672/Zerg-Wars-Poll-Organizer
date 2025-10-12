@@ -48,6 +48,7 @@ const App: React.FC = () => {
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; poll: Poll } | null>(null);
     const [stickiedPoll, setStickiedPoll] = useState<{ poll: Poll; x: number; y: number } | null>(null);
     const [dropPlaceholder, setDropPlaceholder] = useState<{ categoryId: string; order: number } | null>(null);
+    const [dragInfo, setDragInfo] = useState<{ pollId: string; startX: number; startY: number; } | null>(null);
 
 
     const [confirmAction, setConfirmAction] = useState<{
@@ -98,6 +99,17 @@ const App: React.FC = () => {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
+    // Add class to body to prevent text selection during drag
+    useEffect(() => {
+        if (stickiedPoll) {
+            document.body.classList.add('is-dragging');
+        } else {
+            document.body.classList.remove('is-dragging');
+        }
+        // Cleanup function
+        return () => document.body.classList.remove('is-dragging');
+    }, [stickiedPoll]);
+
 
     // Save polls to localStorage whenever they change
     useEffect(() => {
@@ -133,6 +145,24 @@ const App: React.FC = () => {
         return () => window.removeEventListener('click', handleClick);
     }, []);
     
+    const hideUndoBar = useCallback(() => {
+        setLastDeletedPoll(null);
+    }, []);
+
+    const handleOpenAddModal = useCallback((categoryId?: string) => {
+        hideUndoBar();
+        setEditingPoll(null);
+        setNewPollCategory(categoryId || null);
+        setIsAddModalOpen(true);
+    }, [hideUndoBar]);
+    
+    const handleOpenEditModal = useCallback((pollId: string) => {
+        hideUndoBar();
+        setEditingPoll(polls[pollId]);
+        setNewPollCategory(null);
+        setIsAddModalOpen(true);
+    }, [polls, hideUndoBar]);
+
     const handleStickyDrop = useCallback(() => {
         if (!stickiedPoll || !dropPlaceholder) {
             setStickiedPoll(null);
@@ -225,44 +255,77 @@ const App: React.FC = () => {
     
     }, [stickiedPoll, polls]);
 
+    const handleStartStickyMove = useCallback(() => {
+        if (!contextMenu) return;
+        setStickiedPoll({ poll: contextMenu.poll, x: contextMenu.x, y: contextMenu.y });
+    }, [contextMenu]);
 
-    // Effect to handle sticky poll movement
+    // Effect to handle click vs. drag initiation
     useEffect(() => {
-        if (stickiedPoll) {
-            const dropHandler = (e: MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
+        if (!dragInfo) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            // If already dragging (stickied), this listener's job is done.
+            if (stickiedPoll) return;
+
+            // Not dragging yet, check threshold
+            const DRAG_THRESHOLD = 5;
+            const dx = e.clientX - dragInfo.startX;
+            const dy = e.clientY - dragInfo.startY;
+            if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+                setStickiedPoll({ poll: polls[dragInfo.pollId], x: e.clientX, y: e.clientY });
+            }
+        };
+
+        const handleMouseUp = () => {
+             // If a drag never started, it was a click.
+            if (!stickiedPoll) {
+                handleOpenEditModal(dragInfo.pollId);
+            }
+            // The drop itself is handled by the other useEffect.
+            // We just need to clear the drag initiation state.
+            setDragInfo(null);
+        };
+        
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp, { once: true });
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [dragInfo, stickiedPoll, polls, handleOpenEditModal]);
+
+    // Effect to handle active dragging (moving and dropping the stickied card)
+    useEffect(() => {
+        if (!stickiedPoll) return;
+
+        const handleMouseUpForDrop = (e: MouseEvent) => {
+             // Only drop on left-click mouseup
+            if (e.button === 0) {
                 handleStickyDrop();
-            };
-    
-            window.addEventListener('mousemove', handleStickyMove);
-            // Use capture phase to intercept the click before it reaches other elements
-            window.addEventListener('click', dropHandler, { once: true, capture: true });
-    
-            return () => {
-                window.removeEventListener('mousemove', handleStickyMove);
-                window.removeEventListener('click', dropHandler, { capture: true });
-            };
-        }
+            }
+        };
+
+        // handleStickyMove is a useCallback, so it's safe to use here.
+        window.addEventListener('mousemove', handleStickyMove);
+        window.addEventListener('mouseup', handleMouseUpForDrop);
+
+        return () => {
+            window.removeEventListener('mousemove', handleStickyMove);
+            window.removeEventListener('mouseup', handleMouseUpForDrop);
+        };
     }, [stickiedPoll, handleStickyMove, handleStickyDrop]);
 
-    
-    const hideUndoBar = useCallback(() => {
-        setLastDeletedPoll(null);
-    }, []);
-
-    const handleOpenAddModal = (categoryId?: string) => {
-        hideUndoBar();
-        setEditingPoll(null);
-        setNewPollCategory(categoryId || null);
-        setIsAddModalOpen(true);
-    };
-    
-    const handleOpenEditModal = (pollId: string) => {
-        hideUndoBar();
-        setEditingPoll(polls[pollId]);
-        setNewPollCategory(null);
-        setIsAddModalOpen(true);
+    const handlePollMouseDown = (event: React.MouseEvent, pollId: string) => {
+        // Prevent starting a drag on right-click
+        if (event.button !== 0) return;
+        
+        setDragInfo({
+          pollId,
+          startX: event.clientX,
+          startY: event.clientY,
+        });
     };
     
     const handleCloseModal = () => {
@@ -368,10 +431,6 @@ const App: React.FC = () => {
     
             return newPolls;
         });
-    };
-    
-    const handleSticky = (pollId: string) => {
-        setStickiedPoll({ poll: polls[pollId], x: 0, y: 0 });
     };
 
     const handlePollContextMenu = (event: React.MouseEvent, poll: Poll) => {
@@ -563,44 +622,6 @@ const App: React.FC = () => {
             return newState;
         });
     };
-
-    const handlePollDrop = useCallback((pollId: string, oldCategoryId: string, newCategoryId: string, orderedIdsInNewCat: string[]) => {
-        hideUndoBar();
-        setPolls(prevPolls => {
-            // Guard against operating on a poll that might not exist in the state
-            if (!prevPolls[pollId]) {
-                console.error(`Poll with id ${pollId} not found during drop operation.`);
-                return prevPolls;
-            }
-    
-            const newPolls = { ...prevPolls };
-    
-            // Update the dragged poll's category first
-            newPolls[pollId] = { ...newPolls[pollId], category: newCategoryId };
-    
-            // Reorder the new category based on the DOM state
-            orderedIdsInNewCat.forEach((id, index) => {
-                if (newPolls[id]) {
-                    newPolls[id] = { ...newPolls[id], order: (index + 1) * 10 };
-                } else {
-                    // This guard prevents a crash if a DOM element's ID is not in the state.
-                    console.warn(`Poll ID ${id} from DOM not found in state during drop.`);
-                }
-            });
-    
-            // If moved between columns, reorder the old column to close the gap
-            if (oldCategoryId !== newCategoryId) {
-                const oldCategoryPolls = Object.values(prevPolls) // Use original polls to find all items in old category
-                    .filter(p => p.category === oldCategoryId && p.id !== pollId) // Exclude the one we moved
-                    .sort((a, b) => (a.order || 0) - (b.order || 0));
-    
-                oldCategoryPolls.forEach((p, index) => {
-                    newPolls[p.id] = { ...p, order: (index + 1) * 10 };
-                });
-            }
-            return newPolls;
-        });
-    }, [hideUndoBar]);
     
     const handleSaveTemplates = (updatedTemplates: Template[]) => {
         setTemplates(updatedTemplates);
@@ -664,8 +685,7 @@ const App: React.FC = () => {
                             category={category}
                             polls={activePolls.filter(p => p.category === category.id).sort((a, b) => (a.order || 0) - (b.order || 0))}
                             onToggleCollapse={handleToggleCollapse}
-                            onEditPoll={handleOpenEditModal}
-                            onPollDrop={handlePollDrop}
+                            onPollMouseDown={handlePollMouseDown}
                             onAddPollToCategory={handleOpenAddModal}
                             onPollContextMenu={handlePollContextMenu}
                             stickiedPollId={stickiedPoll?.poll.id ?? null}
@@ -684,11 +704,11 @@ const App: React.FC = () => {
                     onClose={() => setContextMenu(null)}
                     onDuplicate={() => handleDuplicatePoll(contextMenu.poll.id)}
                     onDelete={() => handleDeletePoll(contextMenu.poll.id)}
+                    onStickyMove={handleStartStickyMove}
                     onMoveUp={() => handleMovePoll(contextMenu.poll.id, 'up')}
                     onMoveDown={() => handleMovePoll(contextMenu.poll.id, 'down')}
                     onMoveToTop={() => handleMovePoll(contextMenu.poll.id, 'top')}
                     onMoveToBottom={() => handleMovePoll(contextMenu.poll.id, 'bottom')}
-                    onSticky={() => handleSticky(contextMenu.poll.id)}
                  />
             )}
             
