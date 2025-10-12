@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Poll, PollOption, Category, Template } from '../types';
-import type { SortableEvent } from 'sortablejs';
-import Sortable from 'sortablejs';
 
 interface PollModalProps {
     poll: Poll | null;
@@ -44,9 +42,7 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
     const [options, setOptions] = useState<PollOption[]>([]);
     const [initialStateJSON, setInitialStateJSON] = useState<string>('');
     
-    const optionsContainerRef = useRef<HTMLDivElement>(null);
     const descriptionRef = useRef<HTMLTextAreaElement>(null);
-    const sortableInstance = useRef<any>(null);
     const saveButtonRef = useRef<HTMLButtonElement>(null);
     const modalContentRef = useRef<HTMLDivElement>(null);
 
@@ -65,30 +61,6 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
             options: pollData.options
         }));
     }, [poll, defaultCategory]);
-    
-    useEffect(() => {
-        if (optionsContainerRef.current) {
-            sortableInstance.current = new Sortable(optionsContainerRef.current, {
-                handle: '.drag-handle',
-                animation: 150,
-                onEnd: (evt: SortableEvent) => {
-                    const { oldIndex, newIndex } = evt;
-                    if (oldIndex === undefined || newIndex === undefined) return;
-                    setOptions(prevOptions => {
-                        const newOptions = [...prevOptions];
-                        const [movedItem] = newOptions.splice(oldIndex, 1);
-                        newOptions.splice(newIndex, 0, movedItem);
-                        return newOptions;
-                    });
-                }
-            });
-        }
-        return () => {
-            if (sortableInstance.current) {
-                sortableInstance.current.destroy();
-            }
-        };
-    }, []);
     
     const isDirty = useCallback(() => {
         const currentState = { description, category, options };
@@ -172,6 +144,19 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
         setOptions(options.map(opt => opt.id === id ? { ...opt, text } : opt));
     };
     
+    const moveOption = (index: number, direction: 'up' | 'down') => {
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === options.length - 1) return;
+
+        setOptions(prevOptions => {
+            const newOptions = [...prevOptions];
+            const [movedItem] = newOptions.splice(index, 1);
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            newOptions.splice(newIndex, 0, movedItem);
+            return newOptions;
+        });
+    };
+
     const applyTemplate = (templateOptions: {text: string}[]) => {
         setOptions(templateOptions.map(opt => ({ id: generateUniqueId(), text: opt.text })));
     };
@@ -217,11 +202,16 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
                             </div>
                         </div>
                         <button type="button" onClick={handleAddOption} className="px-3 py-1 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-full hover:bg-indigo-50 transition dark:text-indigo-400 dark:border-indigo-400 dark:hover:bg-indigo-900/40 mb-3"> + Add Custom Option </button>
-                        <div ref={optionsContainerRef} className="space-y-3">
+                        <div className="space-y-3">
                             {options.map((option, index) => (
                                 <div key={option.id} className="flex items-start mb-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600">
-                                    <div className="drag-handle cursor-move pt-2 pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" title="Drag to reorder">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                     <div className="flex flex-col pt-7 mr-2">
+                                        <button type="button" onClick={() => moveOption(index, 'up')} disabled={index === 0} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                        </button>
+                                        <button type="button" onClick={() => moveOption(index, 'down')} disabled={index === options.length - 1} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        </button>
                                     </div>
                                     <div className="flex-grow">
                                         <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block mb-1">{index + 1}. Option</label>
@@ -231,7 +221,7 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
                                 </div>
                             ))}
                         </div>
-                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Use the drag handle to reorder options. Polls require at least 2 non-empty options.</p>
+                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Use the arrow buttons to reorder options. Polls require at least 2 non-empty options.</p>
                     </div>
                     <div className="flex justify-end space-x-3 border-t dark:border-gray-700 pt-4">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-xl hover:bg-gray-300 transition dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"> Cancel </button>

@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Template } from '../types';
-import type { SortableEvent } from 'sortablejs';
-import Sortable from 'sortablejs';
 
 interface TemplateModalProps {
     templates: Template[];
@@ -18,31 +16,21 @@ const TemplateEditor: React.FC<{
 }> = ({ template, onSave, onCancel }) => {
     const [name, setName] = useState(template.name);
     const [options, setOptions] = useState(template.options);
-    const optionsContainerRef = useRef<HTMLDivElement>(null);
-    const sortableInstance = useRef<any>(null);
-
-    useEffect(() => {
-        if (optionsContainerRef.current) {
-            sortableInstance.current = new Sortable(optionsContainerRef.current, {
-                handle: '.drag-handle',
-                animation: 150,
-                onEnd: (evt: SortableEvent) => {
-                    if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
-                    setOptions(prev => {
-                        const newOpts = [...prev];
-                        const [moved] = newOpts.splice(evt.oldIndex!, 1);
-                        newOpts.splice(evt.newIndex!, 0, moved);
-                        return newOpts;
-                    });
-                },
-            });
-        }
-        return () => sortableInstance.current?.destroy();
-    }, []);
 
     const handleAddOption = () => setOptions([...options, { text: '' }]);
     const handleRemoveOption = (index: number) => setOptions(options.filter((_, i) => i !== index));
     const handleUpdateOption = (index: number, text: string) => setOptions(options.map((opt, i) => (i === index ? { ...opt, text } : opt)));
+
+    const handleMoveOption = (index: number, direction: 'up' | 'down') => {
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === options.length - 1) return;
+        
+        const newOptions = [...options];
+        const [movedItem] = newOptions.splice(index, 1);
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        newOptions.splice(newIndex, 0, movedItem);
+        setOptions(newOptions);
+    };
 
     const handleSaveClick = () => {
         const finalOptions = options.filter(opt => opt.text.trim());
@@ -62,10 +50,17 @@ const TemplateEditor: React.FC<{
             </div>
             <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Options</label>
-                <div ref={optionsContainerRef} className="space-y-2">
+                <div className="space-y-2">
                     {options.map((opt, index) => (
-                        <div key={index} className="flex items-center">
-                            <span className="drag-handle cursor-move pr-2 text-gray-400 dark:text-gray-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></span>
+                        <div key={index} className="flex items-center gap-2">
+                            <div className="flex flex-col">
+                                <button type="button" onClick={() => handleMoveOption(index, 'up')} disabled={index === 0} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                </button>
+                                <button type="button" onClick={() => handleMoveOption(index, 'down')} disabled={index === options.length - 1} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                            </div>
                             <input type="text" value={opt.text} onChange={e => handleUpdateOption(index, e.target.value)} className="flex-grow rounded-md border-gray-300 p-1 border text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
                             <button onClick={() => handleRemoveOption(index)} className="ml-2 text-red-500 dark:text-red-400 p-1 hover:bg-red-100 dark:hover:bg-gray-600 rounded-full" title="Remove Option">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
