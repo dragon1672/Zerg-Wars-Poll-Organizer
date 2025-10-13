@@ -338,6 +338,8 @@ const App: React.FC = () => {
                             onPollContextMenu={handlePollContextMenu}
                             stickiedPollId={stickiedPoll?.poll.id ?? null}
                             dropPlaceholder={dropPlaceholder}
+                            onDuplicatePoll={duplicatePoll}
+                            onDeletePoll={deletePoll}
                         />
                     ))}
                 </div>

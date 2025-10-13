@@ -12,9 +12,11 @@ interface ColumnProps {
     onPollContextMenu: (event: React.MouseEvent, poll: Poll) => void;
     stickiedPollId: string | null;
     dropPlaceholder: { categoryId: string; order: number } | null;
+    onDuplicatePoll: (pollId: string) => void;
+    onDeletePoll: (pollId: string) => void;
 }
 
-const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onPollMouseDown, onAddPollToCategory, onPollContextMenu, stickiedPollId, dropPlaceholder }) => {
+const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onPollMouseDown, onAddPollToCategory, onPollContextMenu, stickiedPollId, dropPlaceholder, onDuplicatePoll, onDeletePoll }) => {
     
     let placeholderInserted = false;
 
@@ -38,6 +40,8 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onPo
                                         onMouseDown={onPollMouseDown}
                                         onContextMenu={onPollContextMenu}
                                         isStickied={poll.id === stickiedPollId}
+                                        onDuplicate={onDuplicatePoll}
+                                        onDelete={onDeletePoll}
                                     />
                                 </React.Fragment>
                             );
@@ -49,6 +53,8 @@ const Column: React.FC<ColumnProps> = ({ category, polls, onToggleCollapse, onPo
                                 onMouseDown={onPollMouseDown}
                                 onContextMenu={onPollContextMenu}
                                 isStickied={poll.id === stickiedPollId}
+                                onDuplicate={onDuplicatePoll}
+                                onDelete={onDeletePoll}
                             />
                         );
                     })}
