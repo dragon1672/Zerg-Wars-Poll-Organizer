@@ -9,6 +9,7 @@ export interface Poll {
   description: string;
   options: PollOption[];
   order: number;
+  tags?: string[];
 }
 
 export type Polls = Record<string, Poll>;

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Poll, Polls, Template, ProjectData } from './types';
-import { columnCategories, categoryOrderMap, baseTemplatesData } from './constants';
+import { columnCategories, categoryOrderMap } from './constants';
 import { ahkScriptContent } from './ahkScript';
 import Header from './components/Header';
 import UndoBar from './components/UndoBar';
@@ -10,6 +10,8 @@ import TemplateModal from './components/TemplateModal';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import ContextMenu from './components/ContextMenu';
 import FloatingPollCard from './components/FloatingPollCard';
+import ExportModal from './components/ExportModal';
+import BulkEditModal from './components/BulkEditModal';
 
 import { usePolls } from './hooks/usePolls';
 import { useTemplates } from './hooks/useTemplates';
@@ -30,12 +32,15 @@ const App: React.FC = () => {
 
     // UI State
     const [theme, setTheme] = useState<Theme>('light');
+    const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Modal States
     const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [newPollCategory, setNewPollCategory] = useState<string | null>(null);
     const [confirmAction, setConfirmAction] = useState<{
         title: string; message: string; confirmText: string; onConfirm: () => void;
@@ -153,11 +158,13 @@ const App: React.FC = () => {
     };
     
     // Project and Export Logic
-    const handleExport = (format: 'text' | 'ahk') => {
+    const handlePerformExport = ({ selectedPollIds, format, autoTag }: { selectedPollIds: string[], format: 'text' | 'ahk', autoTag: string }) => {
         let exportText = "";
         const fileExtension = 'txt';
+
+        const pollsToExport = selectedPollIds.map(id => polls[id]).filter(Boolean);
     
-        const sortedPolls = (Object.values(polls) as Poll[])
+        const sortedPolls = (pollsToExport as Poll[])
             .sort((a, b) => {
                 const catAOrder = categoryOrderMap.get(a.category) ?? 999;
                 const catBOrder = categoryOrderMap.get(b.category) ?? 999;
@@ -200,6 +207,22 @@ const App: React.FC = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+
+        if (autoTag) {
+            setPolls(prevPolls => {
+                const newPolls = { ...prevPolls };
+                selectedPollIds.forEach(id => {
+                    const poll = newPolls[id];
+                    if (poll) {
+                        const newTags = new Set(poll.tags || []);
+                        newTags.add(autoTag.trim().toLowerCase());
+                        poll.tags = Array.from(newTags);
+                    }
+                });
+                return newPolls;
+            });
+        }
+        setIsExportModalOpen(false);
     };
 
     const handleDownloadAhkScript = () => {
@@ -276,7 +299,63 @@ const App: React.FC = () => {
         reader.readAsText(file);
     };
 
-    const activePolls = Object.values(polls) as Poll[];
+    const handleApplyBulkEdit = useCallback(({ selectedPollIds, tagsToAdd, tagsToRemove }: { selectedPollIds: string[], tagsToAdd: string[], tagsToRemove: string[] }) => {
+        try {
+            setPolls(prevPolls => {
+                const newPolls = { ...prevPolls };
+                selectedPollIds.forEach(id => {
+                    const originalPoll = newPolls[id];
+                    if (originalPoll) {
+                        const pollTags = new Set(originalPoll.tags || []);
+                        
+                        tagsToAdd.forEach(tag => {
+                            const cleanTag = tag.trim().toLowerCase();
+                            if (cleanTag) pollTags.add(cleanTag);
+                        });
+
+                        tagsToRemove.forEach(tag => {
+                            const cleanTag = tag.trim().toLowerCase();
+                            if (cleanTag) pollTags.delete(cleanTag);
+                        });
+                        
+                        // Create a new poll object to prevent state mutation
+                        newPolls[id] = {
+                            ...originalPoll,
+                            tags: Array.from(pollTags).sort(),
+                        };
+                    }
+                });
+                return newPolls;
+            });
+            setIsBulkEditModalOpen(false);
+        } catch (error) {
+            console.error("Error applying bulk edit:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            alert(`Failed to apply bulk edit. Please check the console for details.\n\nError: ${errorMessage}`);
+        }
+    }, [setPolls]);
+
+    const allTags = useMemo(() => {
+        const tagsSet = new Set<string>();
+        Object.values(polls).forEach(poll => {
+            poll.tags?.forEach(tag => tagsSet.add(tag));
+        });
+        return Array.from(tagsSet).sort();
+    }, [polls]);
+
+    const filteredPolls = useMemo(() => {
+        const lowercasedQuery = searchQuery.toLowerCase();
+        if (!lowercasedQuery) {
+            return Object.values(polls) as Poll[];
+        }
+        return (Object.values(polls) as Poll[]).filter(poll => {
+            const inDescription = poll.description.toLowerCase().includes(lowercasedQuery);
+            const inOptions = poll.options.some(opt => opt.text.toLowerCase().includes(lowercasedQuery));
+            const inTags = poll.tags?.some(tag => tag.toLowerCase().includes(lowercasedQuery));
+            return inDescription || inOptions || inTags;
+        });
+    }, [polls, searchQuery]);
+
     const collapsedCategories = columnCategories.filter(col => collapsedState.get(col.id));
     const expandedCategories = columnCategories.filter(col => !collapsedState.get(col.id));
 
@@ -286,14 +365,17 @@ const App: React.FC = () => {
                 theme={theme}
                 setTheme={setTheme}
                 onAddPoll={() => handleOpenAddModal()}
-                onExport={handleExport}
-                onDownloadAhkScript={handleDownloadAhkScript}
+                onExport={() => setIsExportModalOpen(true)}
                 onSaveProject={handleSaveProject}
                 onTriggerLoad={() => fileInputRef.current?.click()}
                 onResetToDefaults={requestResetToDefaults}
                 onDeletePolls={requestDeletePollsOnly}
                 onDeleteAll={requestDeleteAll}
                 onManageTemplates={() => setIsTemplateModalOpen(true)}
+                onBulkEdit={() => setIsBulkEditModalOpen(true)}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                allTags={allTags}
             />
             
              <input
@@ -319,7 +401,7 @@ const App: React.FC = () => {
                         >
                             <div className="flex items-center justify-center h-full">
                                 <h2 className="text-sm font-bold truncate text-gray-800 dark:text-gray-200">
-                                    {col.title} ({activePolls.filter(p => p.category === col.id).length})
+                                    {col.title} ({filteredPolls.filter(p => p.category === col.id).length})
                                 </h2>
                             </div>
                         </div>
@@ -331,7 +413,7 @@ const App: React.FC = () => {
                         <Column
                             key={category.id}
                             category={category}
-                            polls={activePolls.filter(p => p.category === category.id).sort((a, b) => (a.order || 0) - (b.order || 0))}
+                            polls={filteredPolls.filter(p => p.category === category.id).sort((a, b) => (a.order || 0) - (b.order || 0))}
                             onToggleCollapse={handleToggleCollapse}
                             onPollMouseDown={handlePollMouseDown}
                             onAddPollToCategory={handleOpenAddModal}
@@ -370,6 +452,7 @@ const App: React.FC = () => {
                     categories={columnCategories}
                     templates={templates}
                     defaultCategory={newPollCategory}
+                    allTags={allTags}
                 />
             )}
 
@@ -378,6 +461,25 @@ const App: React.FC = () => {
                     templates={templates}
                     onSave={handleSaveTemplates}
                     onClose={() => setIsTemplateModalOpen(false)}
+                />
+            )}
+
+            {isExportModalOpen && (
+                <ExportModal
+                    polls={Object.values(polls) as Poll[]}
+                    allTags={allTags}
+                    onClose={() => setIsExportModalOpen(false)}
+                    onExport={handlePerformExport}
+                    onDownloadAhkScript={handleDownloadAhkScript}
+                />
+            )}
+
+            {isBulkEditModalOpen && (
+                <BulkEditModal
+                    polls={Object.values(polls) as Poll[]}
+                    allTags={allTags}
+                    onClose={() => setIsBulkEditModalOpen(false)}
+                    onSave={handleApplyBulkEdit}
                 />
             )}
 

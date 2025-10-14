@@ -1,4 +1,5 @@
 
+
 import type { Category, Polls, Template } from './types';
 
 export const STORAGE_KEY = 'zergWarsPollsData';
@@ -34,7 +35,8 @@ export const basePollsData: Polls = {
         { "id": "opt_za_4", "text": "This would be a significant issue – Removing Aberration would hurt the faction in a big way and be hard to fix." },
         { "id": "opt_za_5", "text": "Aberration is core to Zerg – It's too central to remove and would be an unfair nerf." }
       ],
-      "order": 10
+      "order": 10,
+      "tags": []
     },
     "poll_general_4v4": {
         "id": "poll_general_4v4",
@@ -46,7 +48,8 @@ export const basePollsData: Polls = {
             { "id": "142ff072", "text": "Unsure, no noticeable difference" },
             { "id": "e507c45e", "text": "No, games feel shorter" }
         ],
-        "order": 20
+        "order": 20,
+        "tags": []
     },
     "poll_terran_bunker": {
         "id": "poll_terran_bunker",
@@ -59,7 +62,8 @@ export const basePollsData: Polls = {
             { "id": "442ef5fb", "text": "Weaker than balanced" },
             { "id": "4daa5607", "text": "Underpowered" }
         ],
-        "order": 10
+        "order": 10,
+        "tags": ["balance"]
     }
 };
 

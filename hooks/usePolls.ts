@@ -61,7 +61,7 @@ export const usePolls = () => {
                 const category = newPollCategory || pollData.category;
                 const currentPolls = (Object.values(newPolls) as Poll[]).filter(p => p.category === category);
                 const maxOrder = currentPolls.length > 0 ? Math.max(...currentPolls.map(p => p.order || 0)) : 0;
-                newPolls[newId] = { ...pollData, category, id: newId, order: maxOrder + 10 };
+                newPolls[newId] = { ...pollData, category, id: newId, order: maxOrder + 10, tags: pollData.tags || [] };
             }
             return newPolls;
         });
@@ -95,6 +95,7 @@ export const usePolls = () => {
         const newPollData = {
             ...originalPoll,
             id: newId,
+            tags: [...(originalPoll.tags || [])]
         };
         
         setPolls(prevPolls => {

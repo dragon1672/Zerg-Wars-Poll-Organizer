@@ -14,7 +14,7 @@ const PollCard: React.FC<PollCardProps> = ({ poll, onMouseDown, onContextMenu, i
 
     if (isStickied) {
         return (
-            <div className="bg-gray-200 dark:bg-gray-600 p-3 m-1 rounded-xl shadow-inner border-2 border-dashed border-gray-400 dark:border-gray-500 h-[78px] animate-pulse">
+            <div className="bg-gray-200 dark:bg-gray-600 p-3 m-1 rounded-xl shadow-inner border-2 border-dashed border-gray-400 dark:border-gray-500 min-h-[78px] animate-pulse">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Moving poll...</p>
             </div>
         );
@@ -33,7 +33,7 @@ const PollCard: React.FC<PollCardProps> = ({ poll, onMouseDown, onContextMenu, i
     return (
         <div 
             data-poll-id={poll.id} 
-            className="group bg-white dark:bg-gray-700 p-3 m-1 rounded-xl shadow-md cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500 transition-shadow relative"
+            className="group bg-white dark:bg-gray-700 p-3 m-1 rounded-xl shadow-md cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500 transition-shadow relative flex flex-col gap-2"
             onMouseDown={(e) => onMouseDown(e, poll.id)}
             onContextMenu={(e) => {
                 e.stopPropagation(); // Prevent parent context menus
@@ -57,12 +57,22 @@ const PollCard: React.FC<PollCardProps> = ({ poll, onMouseDown, onContextMenu, i
                 </button>
             </div>
 
-            <p className="flex-grow text-sm font-medium text-gray-800 dark:text-gray-200 pr-8">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 pr-8">
                 {poll.description}
             </p>
+            
+             {poll.tags && poll.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 pointer-events-none">
+                    {poll.tags.map(tag => (
+                        <span key={tag} className="px-2 py-0.5 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full dark:bg-purple-900/50 dark:text-purple-300">
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            )}
                 
             {poll.options && poll.options.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 pointer-events-none">
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-600 pointer-events-none">
                     <ol className="list-decimal list-inside text-xs text-gray-600 dark:text-gray-400 space-y-1">
                         {poll.options.map(option => (
                             <li key={option.id} className="truncate">{option.text}</li>

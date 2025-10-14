@@ -4,14 +4,17 @@ interface HeaderProps {
     theme: 'light' | 'dark';
     setTheme: (theme: 'light' | 'dark') => void;
     onAddPoll: () => void;
-    onExport: (format: 'text' | 'ahk') => void;
-    onDownloadAhkScript: () => void;
+    onExport: () => void;
     onSaveProject: () => void;
     onTriggerLoad: () => void;
     onResetToDefaults: () => void;
     onDeletePolls: () => void;
     onDeleteAll: () => void;
     onManageTemplates: () => void;
+    onBulkEdit: () => void;
+    searchQuery: string;
+    onSearchChange: (query: string) => void;
+    allTags: string[];
 }
 
 const Dropdown: React.FC<{
@@ -51,8 +54,9 @@ const Dropdown: React.FC<{
 
 
 const Header: React.FC<HeaderProps> = ({ 
-    theme, setTheme, onAddPoll, onExport, onDownloadAhkScript, onSaveProject, onTriggerLoad, 
-    onResetToDefaults, onDeletePolls, onDeleteAll, onManageTemplates
+    theme, setTheme, onAddPoll, onExport, onSaveProject, onTriggerLoad, 
+    onResetToDefaults, onDeletePolls, onDeleteAll, onManageTemplates, onBulkEdit,
+    searchQuery, onSearchChange, allTags
 }) => {
     
     const baseButtonClasses = "px-4 py-2 font-semibold rounded-xl shadow-lg transition flex items-center justify-center";
@@ -60,24 +64,38 @@ const Header: React.FC<HeaderProps> = ({
     const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
 
     return (
-        <header className="p-4 bg-white dark:bg-gray-800 shadow-md mb-4 sticky top-0 z-20">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                <h1 className="text-3xl font-extrabold text-indigo-700 dark:text-indigo-400">Zerg Wars Poll Organizer</h1>
-                <div className="flex flex-wrap gap-3 mt-4 md:mt-0 items-center">
+        <header className="p-4 bg-white dark:bg-gray-800 shadow-md sticky top-0 z-20">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                <h1 className="text-3xl font-extrabold text-indigo-700 dark:text-indigo-400 flex-shrink-0">Zerg Wars Poll Organizer</h1>
+                
+                <div className="w-full xl:w-auto flex-grow flex items-center justify-start xl:justify-center">
+                    <div className="relative w-full max-w-md">
+                        <input
+                            type="search"
+                            placeholder="Search descriptions, options, or tags..."
+                            value={searchQuery}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            list="all-tags-datalist"
+                            className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+                        />
+                         <datalist id="all-tags-datalist">
+                            {allTags.map(tag => <option key={tag} value={tag} />)}
+                        </datalist>
+                        <svg className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-3 items-center">
                     <button onClick={onAddPoll} className={`${baseButtonClasses} bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800`}> + Add Poll </button>
-                    <button onClick={onManageTemplates} className={`${baseButtonClasses} bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800`}> Manage Templates </button>
+                    <button onClick={onManageTemplates} className={`${baseButtonClasses} bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800`}> Templates </button>
+                    <button onClick={onBulkEdit} className={`${baseButtonClasses} bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800`}> Bulk Edit </button>
 
                     <Dropdown buttonText="Project" buttonClasses={`${baseButtonClasses} bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800`}>
                          <button onClick={onSaveProject} className={dropdownItemClasses}> Save Project (.json) </button>
                          <button onClick={onTriggerLoad} className={dropdownItemClasses}> Load Project (.json) </button>
                     </Dropdown>
                     
-                     <Dropdown buttonText="Export" buttonClasses={`${baseButtonClasses} bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800`}>
-                        <button onClick={() => onExport('text')} className={dropdownItemClasses}> Export as Text (.txt) </button>
-                        <button onClick={() => onExport('ahk')} className={dropdownItemClasses}> Export for AutoHotKey (.txt) </button>
-                        <div className="border-t my-1 border-gray-200 dark:border-gray-600"></div>
-                        <button onClick={onDownloadAhkScript} className={dropdownItemClasses}> Download AHK Script (.ahk) </button>
-                    </Dropdown>
+                    <button onClick={onExport} className={`${baseButtonClasses} bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800`}>Export</button>
                     
                     <Dropdown buttonText="Reset / Clear" buttonClasses={`${baseButtonClasses} bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800`}>
                         <button onClick={onResetToDefaults} className={dropdownItemClasses}> Reset to Default Data </button>

@@ -8,6 +8,7 @@ interface PollModalProps {
     categories: Category[];
     templates: Template[];
     defaultCategory?: string | null;
+    allTags: string[];
 }
 
 const generateUniqueId = () => crypto.randomUUID().substring(0, 8);
@@ -36,10 +37,12 @@ const MarkdownToolbar: React.FC<{ onFormat: (type: FormatType) => void }> = ({ o
     );
 };
 
-const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories, templates, defaultCategory }) => {
+const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories, templates, defaultCategory, allTags }) => {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('GENERAL');
     const [options, setOptions] = useState<PollOption[]>([]);
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
     const [initialStateJSON, setInitialStateJSON] = useState<string>('');
     
     const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -48,24 +51,26 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
 
     useEffect(() => {
         const pollData = poll 
-            ? { description: poll.description || '', category: poll.category || 'GENERAL', options: poll.options || [] }
-            : { description: '', category: defaultCategory || 'GENERAL', options: [] };
+            ? { description: poll.description || '', category: poll.category || 'GENERAL', options: poll.options || [], tags: poll.tags || [] }
+            : { description: '', category: defaultCategory || 'GENERAL', options: [], tags: [] };
         
         setDescription(pollData.description);
         setCategory(pollData.category);
         setOptions(JSON.parse(JSON.stringify(pollData.options)));
+        setTags([...pollData.tags]);
 
         setInitialStateJSON(JSON.stringify({
             description: pollData.description,
             category: pollData.category,
-            options: pollData.options
+            options: pollData.options,
+            tags: pollData.tags
         }));
     }, [poll, defaultCategory]);
     
     const isDirty = useCallback(() => {
-        const currentState = { description, category, options };
+        const currentState = { description, category, options, tags };
         return JSON.stringify(currentState) !== initialStateJSON;
-    }, [description, category, options, initialStateJSON]);
+    }, [description, category, options, tags, initialStateJSON]);
 
     const handleAttemptClose = useCallback(() => {
         if (isDirty()) {
@@ -135,7 +140,7 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
             alert("Error: Description and at least two non-empty options are required.");
             return;
         }
-        onSave({ description, category, options: validOptions }, poll?.id);
+        onSave({ description, category, options: validOptions, tags }, poll?.id);
     };
 
     const handleAddOption = () => setOptions([...options, { id: generateUniqueId(), text: '' }]);
@@ -155,6 +160,21 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
             newOptions.splice(newIndex, 0, movedItem);
             return newOptions;
         });
+    };
+    
+    const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const newTag = tagInput.trim().toLowerCase();
+            if (newTag && !tags.includes(newTag)) {
+                setTags([...tags, newTag]);
+            }
+            setTagInput('');
+        }
+    };
+    
+    const removeTag = (tagToRemove: string) => {
+        setTags(tags.filter(tag => tag !== tagToRemove));
     };
 
     const applyTemplate = (templateOptions: {text: string}[]) => {
@@ -185,8 +205,35 @@ const PollModal: React.FC<PollModalProps> = ({ poll, onSave, onClose, categories
                             <textarea id="poll-description" ref={descriptionRef} value={description} onChange={e => setDescription(e.target.value)} rows={4} required className="block w-full rounded-b-xl border-gray-300 p-2 border border-t-0 shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
                         </div>
                     </div>
+                     <div className="mb-6 border-t dark:border-gray-700 pt-4">
+                        <label htmlFor="poll-tags" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">3. Tags</label>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            {tags.map(tag => (
+                                <div key={tag} className="flex items-center bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 text-sm font-medium px-2.5 py-1 rounded-full">
+                                    <span>{tag}</span>
+                                    <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <input
+                            id="poll-tags"
+                            type="text"
+                            list="all-tags-list"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={handleTagInputKeyDown}
+                            placeholder="Add a tag and press Enter..."
+                            className="block w-full rounded-lg border-gray-300 p-2 border shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        />
+                        <datalist id="all-tags-list">
+                            {allTags.map(tag => <option key={tag} value={tag} />)}
+                        </datalist>
+                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Separate tags with a comma or by pressing Enter.</p>
+                    </div>
                     <div className="mb-6 border-t dark:border-gray-700 pt-4">
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">3. Voting Options</h3>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">4. Voting Options</h3>
                         <div className="my-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
                              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Apply a Template</p>
                             <div className="flex flex-wrap gap-2">
