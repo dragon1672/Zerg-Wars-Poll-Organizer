@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Poll, Polls, Template, ProjectData } from './types';
 import { columnCategories, categoryOrderMap } from './constants';
-import { ahkScriptContent } from './ahkScript';
+import { ahkScriptContent, ahkThreadScriptContent } from './ahkScript';
 import Header from './components/Header';
 import UndoBar from './components/UndoBar';
 import Column from './components/Column';
@@ -158,7 +158,7 @@ const App: React.FC = () => {
     };
     
     // Project and Export Logic
-    const handlePerformExport = ({ selectedPollIds, format, autoTag }: { selectedPollIds: string[], format: 'text' | 'ahk', autoTag: string }) => {
+    const handlePerformExport = ({ selectedPollIds, format, autoTag }: { selectedPollIds: string[], format: 'text' | 'ahk' | 'ahk-thread', autoTag: string }) => {
         let exportText = "";
         const fileExtension = 'txt';
 
@@ -183,11 +183,18 @@ const App: React.FC = () => {
                 exportText += `\n`;
             });
             exportText = exportText.trim() + '\n';
-        } else if (format === 'ahk') {
+        } else if (format === 'ahk' || format === 'ahk-thread') {
             const lines: string[] = [];
             sortedPolls.forEach((poll) => {
                 const sanitize = (text: string) => text.replace(/\|/g, '/').replace(/\n/g, ' ');
-                const parts = [poll.description]; // Keep description as is for markdown
+                const parts = [];
+
+                if (format === 'ahk-thread') {
+                    const threadTitle = poll.threadTitle?.trim() || (poll.description.substring(0, 80) + (poll.description.length > 80 ? '...' : ''));
+                    parts.push(sanitize(threadTitle));
+                }
+
+                parts.push(poll.description); // Keep description as is for markdown
                 if (poll.options && poll.options.length > 0) {
                     poll.options.forEach((option) => {
                         parts.push(sanitize(option.text.trim()));
@@ -231,6 +238,18 @@ const App: React.FC = () => {
         const a = document.createElement('a');
         a.href = url;
         a.download = 'DiscordPollHelper.ahk';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadAhkThreadScript = () => {
+        const blob = new Blob([ahkThreadScriptContent], { type: 'application/x-autohotkey' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'DiscordPollHelper_Threads.ahk';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -337,7 +356,8 @@ const App: React.FC = () => {
 
     const allTags = useMemo(() => {
         const tagsSet = new Set<string>();
-        Object.values(polls).forEach(poll => {
+        // FIX: Explicitly cast Object.values(polls) to Poll[] to ensure correct type inference for `poll`.
+        (Object.values(polls) as Poll[]).forEach(poll => {
             poll.tags?.forEach(tag => tagsSet.add(tag));
         });
         return Array.from(tagsSet).sort();
@@ -471,6 +491,7 @@ const App: React.FC = () => {
                     onClose={() => setIsExportModalOpen(false)}
                     onExport={handlePerformExport}
                     onDownloadAhkScript={handleDownloadAhkScript}
+                    onDownloadAhkThreadScript={handleDownloadAhkThreadScript}
                 />
             )}
 

@@ -1,5 +1,3 @@
-
-
 import type { Category, Polls, Template } from './types';
 
 export const STORAGE_KEY = 'zergWarsPollsData';
@@ -27,6 +25,7 @@ export const basePollsData: Polls = {
     "poll_zerg_aberration": {
       "id": "poll_zerg_aberration",
       "description": "How functional would the Zerg faction be if Aberration was removed and made exclusive to Stukov?",
+      "threadTitle": "Zerg without Aberration",
       "category": "ZERG",
       "options": [
         { "id": "opt_za_1", "text": "This would be fine – I don't see any real issues with removing it." },
@@ -41,6 +40,7 @@ export const basePollsData: Polls = {
     "poll_general_4v4": {
         "id": "poll_general_4v4",
         "description": "Do you think Standard 4v4 games are now longer than they used to be on average?",
+        "threadTitle": "4v4 Game Length",
         "category": "GENERAL",
         "options": [
             { "id": "cecdc4dc", "text": "Yes, games feel much longer" },
@@ -54,6 +54,7 @@ export const basePollsData: Polls = {
     "poll_terran_bunker": {
         "id": "poll_terran_bunker",
         "description": "The Terran Bunker in Standard 4v4 games is:",
+        "threadTitle": "Terran Bunker Balance",
         "category": "TERRAN",
         "options": [
             { "id": "e3ef17e0", "text": "Overpowered" },

@@ -17,6 +17,11 @@ const FloatingPollCard: React.FC<FloatingPollCardProps> = ({ poll, x, y }) => {
             style={style}
             className="fixed bg-white dark:bg-gray-700 p-3 rounded-xl shadow-2xl ring-2 ring-indigo-500 z-50 pointer-events-none w-72 opacity-90 transform -rotate-2"
         >
+             {poll.threadTitle && (
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 truncate mb-1 pb-1 border-b border-gray-200 dark:border-gray-600" title={poll.threadTitle}>
+                    Thread: {poll.threadTitle}
+                </p>
+            )}
              <p className="flex-grow text-sm font-medium text-gray-800 dark:text-gray-200">
                 {poll.description}
             </p>

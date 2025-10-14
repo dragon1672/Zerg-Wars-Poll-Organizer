@@ -134,7 +134,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({ polls, allTags, onClose, 
             return;
         }
         onSave({
-            selectedPollIds: Array.from(selectedPollIds),
+            // FIX: Use spread syntax to convert the Set to an array. This ensures correct type inference to `string[]` and resolves the error.
+            selectedPollIds: [...selectedPollIds],
             tagsToAdd,
             tagsToRemove,
         });

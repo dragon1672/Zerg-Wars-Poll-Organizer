@@ -7,6 +7,7 @@ export interface Poll {
   id: string;
   category: string;
   description: string;
+  threadTitle?: string;
   options: PollOption[];
   order: number;
   tags?: string[];

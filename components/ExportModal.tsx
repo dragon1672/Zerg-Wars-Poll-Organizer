@@ -5,16 +5,17 @@ interface ExportModalProps {
     polls: Poll[];
     allTags: string[];
     onClose: () => void;
-    onExport: (options: { selectedPollIds: string[], format: 'text' | 'ahk', autoTag: string }) => void;
+    onExport: (options: { selectedPollIds: string[], format: 'text' | 'ahk' | 'ahk-thread', autoTag: string }) => void;
     onDownloadAhkScript: () => void;
+    onDownloadAhkThreadScript: () => void;
 }
 
-const ExportModal: React.FC<ExportModalProps> = ({ polls, allTags, onClose, onExport, onDownloadAhkScript }) => {
+const ExportModal: React.FC<ExportModalProps> = ({ polls, allTags, onClose, onExport, onDownloadAhkScript, onDownloadAhkThreadScript }) => {
     const [selectedPollIds, setSelectedPollIds] = useState<Set<string>>(() => new Set(polls.map(p => p.id)));
     const [tagFilter, setTagFilter] = useState<string[]>([]);
     const [tagFilterMode, setTagFilterMode] = useState<'any' | 'all'>('any');
     const [untaggedFilter, setUntaggedFilter] = useState<'any' | 'untagged' | 'tagged'>('any');
-    const [format, setFormat] = useState<'text' | 'ahk'>('text');
+    const [format, setFormat] = useState<'text' | 'ahk' | 'ahk-thread'>('text');
     const [autoTag, setAutoTag] = useState('');
     
     const filteredPolls = useMemo(() => {
@@ -157,16 +158,29 @@ const ExportModal: React.FC<ExportModalProps> = ({ polls, allTags, onClose, onEx
                                     </label>
                                      <label className="p-3 border dark:border-gray-600 rounded-md has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/30 has-[:checked]:border-indigo-500">
                                         <input type="radio" name="format" value="ahk" checked={format === 'ahk'} onChange={() => setFormat('ahk')} className="mr-2"/>
-                                        <span className="font-bold">AutoHotKey (.txt)</span> - For use with the Discord helper script.
+                                        <span className="font-bold">AutoHotKey (No Threads)</span> - For use with the standard helper script.
+                                    </label>
+                                     <label className="p-3 border dark:border-gray-600 rounded-md has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/30 has-[:checked]:border-indigo-500">
+                                        <input type="radio" name="format" value="ahk-thread" checked={format === 'ahk-thread'} onChange={() => setFormat('ahk-thread')} className="mr-2"/>
+                                        <span className="font-bold">AutoHotKey (With Threads)</span> - For use with the thread-enabled helper script.
                                     </label>
                                 </div>
                             </div>
-                             {format === 'ahk' && (
+                            {format === 'ahk' && (
                                 <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-300 dark:border-blue-700 text-sm">
-                                    <p className="mb-2">This format requires the AutoHotKey helper script to automate posting in Discord.</p>
+                                    <p className="mb-2">This format requires the standard AutoHotKey helper script to automate posting in Discord.</p>
                                     <button onClick={onDownloadAhkScript} className="w-full text-center px-3 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors flex items-center justify-center gap-2">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                         Download AHK Script
+                                    </button>
+                                </div>
+                            )}
+                            {format === 'ahk-thread' && (
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-300 dark:border-blue-700 text-sm">
+                                    <p className="mb-2">This format requires the thread-enabled AutoHotKey helper script to automate posting in Discord.</p>
+                                    <button onClick={onDownloadAhkThreadScript} className="w-full text-center px-3 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors flex items-center justify-center gap-2">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                        Download AHK Script (Threads)
                                     </button>
                                 </div>
                             )}

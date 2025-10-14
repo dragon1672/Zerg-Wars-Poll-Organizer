@@ -57,6 +57,15 @@ const PollCard: React.FC<PollCardProps> = ({ poll, onMouseDown, onContextMenu, i
                 </button>
             </div>
 
+            {poll.threadTitle && (
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-600 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 truncate" title={poll.threadTitle}>
+                        {poll.threadTitle}
+                    </p>
+                </div>
+            )}
+
             <p className="text-sm font-medium text-gray-800 dark:text-gray-200 pr-8">
                 {poll.description}
             </p>

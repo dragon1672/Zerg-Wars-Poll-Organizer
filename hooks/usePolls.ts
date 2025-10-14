@@ -95,6 +95,7 @@ export const usePolls = () => {
         const newPollData = {
             ...originalPoll,
             id: newId,
+            threadTitle: originalPoll.threadTitle,
             tags: [...(originalPoll.tags || [])]
         };
         
